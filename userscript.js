@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         CardRecordPROMAX
 // @namespace    http://tampermonkey.net/
-// @version      1.2.0
+// @version      1.3.0
 // @description  not an AD reference
 // @author       Several People
 // @match        *://ruarua.ru/*
@@ -16,16 +16,20 @@
     // 配置项： 'angelslime' | 'none' | 'random'
     const animationType = GM_getValue('animationType', 'angelslime');
     const angelslime = 'https://ruarua.ru/api/pic/gif/loading1.webp';
+    const rickroll = "https://media1.tenor.com/m/x8v1oNUOmg4AAAAd/rickroll-roll.gif";
+    new Image().src = rickroll
 
     function replaceSrc(src) {
         if (!src) return src;
-        if (src.endsWith('angelslime.webp') || src.endsWith('loading2.webp') || src.endsWith('loading3.webp')) {
+        if (src.endsWith('loading1.webp') || src.endsWith('loading2.webp') || src.endsWith('loading3.webp')) {
             if (animationType === 'angelslime') {
                 return angelslime;
             } else if (animationType === 'none') {
                 return '';
             } else if (animationType === 'random') {
                 return src;
+            } else if (animationType === 'rickroll') {
+                return rickroll;
             }
         }
         return src;
@@ -273,15 +277,52 @@
         }
     }
     const msg_send = {
-        _value: GM_getValue("msg_send", true),
+        _value: GM_getValue("msg_send", 1),
         get value() {
-            return this._value
+            return (this._value + 0)
         },
         set value(newVal) {
             this._value = newVal
             GM_setValue("msg_send", newVal)
         }
     }
+    // 不要乱动这里！！！
+    // 使用方法：
+    // let a = data_obj.value.color
+    // let a = data_obj.value['color']
+    // data_obj = ['color', '6cf'] //这条直接使用赋值符号！
+    const data_obj = {
+        _value: GM_getValue("data_obj", {}),
+        get value() {
+            return { ...this._value }
+        },
+        set value(newVal) {
+            if (!Array.isArray(newVal) || newVal.length !== 2) {
+                throw new Error("Expected [key, value] array");
+            }
+            this._value[newVal[0]] = newVal[1]
+            GM_setValue("data_obj", this._value)
+        },
+        delete(key) {
+            delete this._value[key];
+            GM_setValue("data_obj", this._value);
+        }
+    }
+
+    let isShiftPressed = false;
+
+    document.addEventListener('keydown', (event) => {
+    if (event.key === 'Shift') {
+        isShiftPressed = true;
+    }
+    });
+
+    document.addEventListener('keyup', (event) => {
+    if (event.key === 'Shift') {
+        isShiftPressed = false;
+    }
+    });
+
     function dicerConvert(num) {
         if (num <= 5) {
             return num
@@ -842,6 +883,21 @@
             "<div><span style=\"color: #7eef6d\">[SCRIPT] </span><span style=\"color: #8296ff\">Dice ended</span></div>"
         chatScroll()
     }
+
+    let prevCraftState = false, curCraftState = false
+    const oldCraft = unsafeWindow.craftcard
+    async function injectCraft() {
+        unsafeWindow.craftcard = function () {
+            if (isShiftPressed) unsafeWindow.singleall()
+            setTimeout(oldCraft(), 100)
+        }
+    }
+    setInterval(function (){
+        prevCraftState = curCraftState
+        curCraftState = unsafeWindow.location.pathname.startsWith("/e/craftcard")
+        if (curCraftState && !prevCraftState) injectCraft()
+    }, 1400)
+
     let goCraft = false
     async function allCraft() {
         if (unsafeWindow.location.pathname.startsWith("/e/craftcard") === false && unsafeWindow.location.pathname.startsWith("/craftcard") === false) {
@@ -865,7 +921,7 @@
                     document.getElementById("nownum").innerHTML = parseInt(document.getElementsByName("cardchoose")[i].labels[0].innerText.match(/\d+/)[0], 10)
                     unsafeWindow.craftchange()
                     await delay(200)
-                    unsafeWindow.craftcard()
+                    oldCraft()
                     while (document.getElementsByName("cardchoose").length > i && document.getElementsByName("cardchoose")[i].checked) {
                         await delay(100)
                     }
@@ -920,7 +976,7 @@
                 document.getElementById("nownum").innerHTML = parseInt(document.getElementsByName("cardchoose")[i].labels[0].innerText.match(/\d+/)[0], 10)
                 unsafeWindow.craftchange()
                 await delay(200)
-                unsafeWindow.craftcard()
+                oldCraft()
                 while (document.getElementsByName("cardchoose").length > i && document.getElementsByName("cardchoose")[i].checked) {
                     await delay(100)
                 }
@@ -955,11 +1011,159 @@
             "<div><span style=\"color: #7eef6d\">[SCRIPT] </span><span style=\"color: #ffa090\">Craft ended</span></div>"
         chatScroll()
     }
+
+
+    const AppendToChat = function () {
+        if (document.getElementById("message").value.trim() === "") return;
+
+        const msg_color = data_obj.value["color"];
+        const messageValue = "[SCRIPT] " + document.getElementById("message").value;
+        let board = document.getElementById("board");
+        let newMessageContainer = document.createElement("div");
+        newMessageContainer.style.color = msg_color ? msg_color : "7c78cc";
+        let newMessage = document.createElement("b");
+        newMessage.innerText = messageValue;
+        newMessageContainer.appendChild(newMessage);
+        board.appendChild(newMessageContainer);
+        board.scrollTo(0, board.scrollHeight);
+    }
+    const newlog = function (GivenString) {
+        if (msg_send.value === 2) {
+            document.getElementById("message").value = GivenString;
+            AppendToChat();
+        }
+        else console.log(GivenString);
+    }
+    function findClosestString(input, stringList) {
+        if (!stringList.length) return null;
+
+        const isPermutation = (a, b) => {
+            if (a.length !== b.length) return false;
+            const aSorted = [...a.toLowerCase()].sort().join('');
+            const bSorted = [...b.toLowerCase()].sort().join('');
+            return aSorted === bSorted;
+        };
+
+        const permutations = stringList.filter(str => isPermutation(input, str));
+        if (permutations.length > 0) {
+            return permutations[0];
+        }
+
+        const modifiedLevenshtein = (a, b) => {
+            const aLower = a.toLowerCase();
+            const bLower = b.toLowerCase();
+
+            if (!aLower.length) return bLower.length * 0.5;
+            if (!bLower.length) return aLower.length * 0.5;
+
+            const matrix = [];
+            for (let i = 0; i <= bLower.length; i++) {
+                matrix[i] = [i * 0.5];
+            }
+            for (let j = 0; j <= aLower.length; j++) {
+                matrix[0][j] = j * 0.5;
+            }
+
+            for (let i = 1; i <= bLower.length; i++) {
+                for (let j = 1; j <= aLower.length; j++) {
+                    const substitutionCost = aLower[j - 1] === bLower[i - 1] ? 0 : 1;
+                    matrix[i][j] = Math.min(
+                        matrix[i - 1][j] + 0.5,
+                        matrix[i][j - 1] + 0.5,
+                        matrix[i - 1][j - 1] + substitutionCost
+                    );
+                }
+            }
+
+            return matrix[bLower.length][aLower.length];
+        };
+
+        // Find string with minimum distance
+        let minDistance = Infinity;
+        let closestString = null;
+
+        for (const str of stringList) {
+            const distance = modifiedLevenshtein(input, str);
+            if (distance < minDistance) {
+                minDistance = distance;
+                closestString = str;
+            }
+        }
+
+        return closestString;
+    }
+
+    const CommandList = [
+        "rep",
+        "rev",
+        "half",
+        "PFLFstart",
+        "PFLFend",
+        "getPFLF",
+        "claim",
+        "PFLFset",
+        "1A2Bstart",
+        "1A2Bend",
+        "randguess",
+        "guess",
+        "send",
+        "unsend",
+        "to",
+        "craft",
+        "scraft",
+        "endcraft",
+        "craftadd",
+        "craftstate",
+        "craftclear",
+        "dice",
+        "sdice",
+        "diceadd",
+        "enddice",
+        "dicestate",
+        "diceclear",
+        "execute",
+        "idle",
+        "color",
+        "bg",
+        "craftmin",
+        "craftmax",
+        "getmode",
+        "setmode",
+        "refresh",
+        "loadcaptcha",
+        "pos",
+        "scroll",
+        "animation"
+    ];
+
+
     const oldSend = unsafeWindow.send
     unsafeWindow.send = function () {
         const messageValue = document.getElementById("message").value
         let newMessageValue = messageValue
+        let isCommand = newMessageValue.slice(0, 1) === "."
         newMessageValue = newMessageValue.replaceAll(/(?<!\s)(?!\s{2}\S)\s+/g, "  ")
+
+        if (newMessageValue === ".execute") {
+            let tmp = document.getElementById("board").childElementCount;
+            let cmd = document.getElementById("board").children[tmp - 1].textContent;
+            cmd = cmd.split("：")[1] || cmd;
+            if (cmd.slice(0, 1) !== ".") cmd = ".".concat(cmd);
+            console.log("Executed command " + cmd);
+            document.getElementById("message").value = newMessageValue;
+            newMessageValue = cmd;
+        }
+        if (newMessageValue.slice(0, 9) === ".execute ") {
+            newMessageValue = newMessageValue.slice(10)
+            let tmp = document.getElementById("board").childElementCount;
+            let cmd = document.getElementById("board").children[tmp - parseInt(newMessageValue, 10)].textContent;
+            cmd = cmd.split("：")[1] || cmd;
+            if (cmd.slice(0, 1) !== ".") cmd = ".".concat(cmd);
+            console.log("Executed command " + cmd);
+            document.getElementById("message").value = newMessageValue;
+            newMessageValue = cmd;
+        }
+
         //使用方法：.scroll on或者.scroll off，开启或关闭聊天室自动滚动
         if (newMessageValue.slice(0, 8) === ".scroll ") {
             newMessageValue = newMessageValue.slice(9)
@@ -995,6 +1199,11 @@
                 document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
                     "<div><span style=\"color: #7eef6d\">[SCRIPT] Animation Type: Random (Unchanged), refresh to take effect!</span></div>"
                 GM_setValue('animationType', 'random');
+            }
+            else if (newMessageValue.slice(0, 8) === "rickroll") {
+                document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
+                    "<div><span style=\"color: #7eef6d\">[SCRIPT] Animation Type: ???</span></div>"
+                GM_setValue('animationType', 'rickroll');
             }
             else {
                 document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
@@ -1040,6 +1249,7 @@
             helpText += "<div><span style=\"color:rgb(38, 178, 221)\">.refresh：加载新的怪物数值</span></div>"
             helpText += "<div><span style=\"color:rgb(38, 178, 221)\">.send：开启消息发送</span></div>"
             helpText += "<div><span style=\"color:rgb(38, 178, 221)\">.unsend：关闭消息发送</span></div>"
+            helpText += "<div><span style=\"color:rgb(38, 178, 221)\">.to：设置消息发送方式（0: 仅控制台 1: 公开发送 2: 仅自己可见）</span></div>"
             helpText += "<div><span style=\"color:rgb(38, 178, 221)\">.craftstate：查看合卡统计</span></div>"
             helpText += "<div><span style=\"color:rgb(38, 178, 221)\">.dicestate：查看骰子统计</span></div>"
             helpText += "<div><span style=\"color:rgb(38, 178, 221)\">.craftmin [1-7]：设定最低合卡稀有度（默认：1）</span></div>"
@@ -1389,7 +1599,7 @@
             document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
                 "<div><span style=\"color: #7eef6d\">[SCRIPT] Send message is activated</span></div>"
             chatScroll()
-            msg_send.value = true
+            msg_send.value = 1
             newMessageValue = ""
             document.getElementById("message").value = newMessageValue
         }
@@ -1398,7 +1608,43 @@
             document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
                 "<div><span style=\"color: #7eef6d\">[SCRIPT] Send message is inactivated</span></div>"
             chatScroll()
-            msg_send.value = false
+            msg_send.value = 0
+            newMessageValue = ""
+            document.getElementById("message").value = newMessageValue
+        }
+        if (newMessageValue.slice(0, 4) === ".to ") {
+            newMessageValue = newMessageValue.slice(5);
+            if (newMessageValue === "public" || newMessageValue === "1") {
+                newlog("Message will be sent to public chat!")
+                msg_send.value = 1
+                newMessageValue = ""
+                document.getElementById("message").value = newMessageValue
+            }
+            else if (newMessageValue === "private" || newMessageValue === "2") {
+                newlog("Message will be displayed privately!")
+                msg_send.value = 2
+                newMessageValue = ""
+                document.getElementById("message").value = newMessageValue
+            }
+            else if (newMessageValue === "console" || newMessageValue === "0") {
+                newlog("Message will be displayed only in console!")
+                msg_send.value = 0
+                newMessageValue = ""
+                document.getElementById("message").value = newMessageValue
+            }
+        }
+        if (newMessageValue.slice(0, 7) === ".color ") {
+            newMessageValue = newMessageValue.slice(8);
+            function isValidColor(colorStr) {
+                if (!colorStr || typeof colorStr !== 'string') return false;
+                const tester = document.createElement('div');
+                tester.style.color = 'transparent';
+                tester.style.color = colorStr;
+                return tester.style.color !== 'transparent';
+            }
+            if (newMessageValue === "default") data_obj.value = ["color", "7c78cc"];
+            else if (isValidColor(newMessageValue)) data_obj.value = ["color", newMessageValue];
+            else newlog("Invalid Color!");
             newMessageValue = ""
             document.getElementById("message").value = newMessageValue
         }
@@ -1767,9 +2013,8 @@
             document.getElementById("message").value = newMessageValue
         }
         if (newMessageValue[0] === ".") {
-            document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
-                "<div><span style=\"color: #7eef6d\">[SCRIPT] </span><span style=\"color: #7f0000\">Error: Command does not exist!</span></div>"
-            chatScroll()
+            let ClosestCommand = findClosestString(newMessageValue.slice(1).split(' ')[0], CommandList);
+            newlog("Command " + newMessageValue.split(' ')[0] + " not found. Did you mean " + ClosestCommand + "?");
             newMessageValue = ""
             document.getElementById("message").value = newMessageValue
         }
@@ -1884,17 +2129,61 @@
             if (messageBlock[0] === '<' || (messageBlock[0] === '/' && messageBlock !== "/link" && messageBlock !== "/rand" && messageBlock !== "/help")) {
                 messageBlock = " " + messageBlock
             }
-            if (msg_send.value === true) {
+            if (msg_send.value === 1 || !isCommand) {
                 document.getElementById("message").value = messageBlock
                 console.log("Sending message: " + messageBlock)
                 oldSend()
-            } else {
-                document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
-                    "<div><span style=\"color: #7eef6d\">[SCRIPT] Message: </span>" + messageBlock + "</div>"
+            } else if (msg_send.value === 2) {
+                AppendToChat(messageBlock)
+                console.log("Message: " + messageBlock)
                 chatScroll()
             }
+            else console.log("Message: " + messageBlock)
         }
         document.getElementById("message").value = ""
+    }
+
+    /* --------- ADDED BY ARCANAEDEN --------- */
+
+    let messageHistory = [];
+    let currentIndex = -1;
+    function saveMessage(message) {
+        if (message) {
+            if (messageHistory[messageHistory.length - 1] !== message) messageHistory.push(message);
+            currentIndex = messageHistory.length;
+        }
+    }
+
+    function handleKeyDown(event) {
+        const inputField = document.getElementById('message');
+        if (!inputField) return;
+        if (event.key === 'ArrowUp') {
+            if (currentIndex > 0) {
+                currentIndex--;
+                inputField.value = messageHistory[currentIndex];
+            }
+        } else if (event.key === 'ArrowDown') {
+            if (currentIndex < messageHistory.length - 1) {
+                currentIndex++;
+                inputField.value = messageHistory[currentIndex];
+            }
+            else currentIndex = messageHistory.length;
+        } else if (event.key === 'Enter') {
+            const message = inputField.value.trim();
+            saveMessage(message);
+            const sendButton = Array.from(document.querySelectorAll('a')).find(btn => btn.innerText === 'Send');
+            if (sendButton) sendButton.click();
+            else console.error('Send button not found');
+            inputField.value = '';
+        }
+    }
+    function handleInputChange() {
+        currentIndex = messageHistory.length;
+    }
+    const inputField = document.getElementById('message');
+    if (inputField) {
+        inputField.addEventListener('keydown', handleKeyDown);
+        inputField.addEventListener('input', handleInputChange);
     }
 
 })()
