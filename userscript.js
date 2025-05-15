@@ -1028,11 +1028,13 @@
         board.scrollTo(0, board.scrollHeight);
     }
     const newlog = function (GivenString) {
-        if (msg_send.value === 2) {
+        if (msg_send.value === 0) {
+            console.log(GivenString);
+        }
+        else {
             document.getElementById("message").value = GivenString;
             AppendToChat();
         }
-        else console.log(GivenString);
     }
     function findClosestString(input, stringList) {
         if (!stringList.length) return null;
@@ -1137,6 +1139,43 @@
     ];
 
 
+    let goFrag = false
+    async function allFrag() {
+        if (unsafeWindow.location.pathname.startsWith("/e/frag") === false && unsafeWindow.location.pathname.startsWith("/frag") === false) {
+            document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
+                "<div><span style=\"color: #7eef6d\">[SCRIPT] </span><span style=\"color: #7f0000\">Error: Not forging!</span></div>"
+            chatScroll()
+            return
+        }
+        document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
+            "<div><span style=\"color: #7eef6d\">[SCRIPT] </span><span style=\"color: #ffa090\">Forging...</span></div>"
+        chatScroll()
+        goFrag = true
+        let canFrag = true
+        while (goFrag && canFrag) {
+            canFrag = false
+            for (let i = document.getElementsByName("cardchoose").length - 1; i >= 0; i--) {
+                if (canFrag == false && goFrag && parseInt(document.getElementsByName("cardchoose")[i].labels[0].innerText.match(/\d+/)[0], 10) >= 4 + parseInt(document.getElementsByName("cardchoose")[i].value.match(/(?<=\.)\d+/)[0], 10)) {
+                    let pendingRarity = parseInt(document.getElementsByName("cardchoose")[i].value.match(/(?<=\.)\d+/)[0], 10)
+                    document.getElementsByName("cardchoose")[i].checked = 1
+                    await delay(200)
+                    document.getElementById("nownum").innerHTML = Math.floor(parseInt(document.getElementsByName("cardchoose")[i].labels[0].innerText.match(/\d+/)[0], 10) / (4 + pendingRarity))
+                    unsafeWindow.craftchange2()
+                    await delay(200)
+                    unsafeWindow.craftfrag()
+                    while (document.getElementsByName("cardchoose").length > i && document.getElementsByName("cardchoose")[i].checked) {
+                        await delay(100)
+                    }
+                    await delay(500)
+                    canFrag = true
+                }
+            }
+        }
+        document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
+            "<div><span style=\"color: #7eef6d\">[SCRIPT] </span><span style=\"color: #ffa090\">Forge ended</span></div>"
+        chatScroll()
+    }
+    
     const oldSend = unsafeWindow.send
     unsafeWindow.send = function () {
         const messageValue = document.getElementById("message").value
@@ -1182,7 +1221,7 @@
             newMessageValue = ""
             document.getElementById("message").value = newMessageValue
         }
-        //使用方法：.animation angelslime/none/random
+        //使用方法：.animation angelslime/none/random/rickroll
         if (newMessageValue.slice(0, 11) === ".animation ") {
             newMessageValue = newMessageValue.slice(12)
             if (newMessageValue.slice(0, 10) === "angelslime") {
@@ -1202,7 +1241,7 @@
             }
             else if (newMessageValue.slice(0, 8) === "rickroll") {
                 document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
-                    "<div><span style=\"color: #7eef6d\">[SCRIPT] Animation Type: ???</span></div>"
+                    "<div><span style=\"color: #7eef6d\">[SCRIPT] Animation Type: ???, refresh to take effect!</span></div>"
                 GM_setValue('animationType', 'rickroll');
             }
             else {
@@ -1235,12 +1274,12 @@
         if (newMessageValue.slice(0, 5) === ".help") {
             let helpText = ""
             helpText += "<div><span style=\"color: #7eef6d\">欢迎使用CardRecordPROMAX！</span></div>"
-            helpText += "<div><span style=\"color: #7eef6d\">作者：WhenPFLF，davidx</span></div>"
+            helpText += "<div><span style=\"color: #7eef6d\">作者：WhenPFLF，davidx，ArcanaEden</span></div>"
             helpText += "<div><span style=\"color: #7eef6d\">欢迎加群966725201以了解更多信息！</span></div>"
             helpText += "<div><span style=\"color: #7eef6d\">以下为目前可用命令，在聊天区发送指令即可使用。</span></div>"
             helpText += "<div><span style=\"color:rgb(38, 178, 221)\">体验优化类：</span></div>"
             helpText += "<div><span style=\"color:rgb(38, 178, 221)\">.scroll on/off：开启/关闭聊天室自动滚动（默认：on）</span></div>"
-            helpText += "<div><span style=\"color:rgb(38, 178, 221)\">.animation angelslime/none/random：修改加载动画模式（默认：angelslime）</span></div>"
+            helpText += "<div><span style=\"color:rgb(38, 178, 221)\">.animation angelslime/none/random/rickroll：修改加载动画模式（默认：angelslime）</span></div>"
             helpText += "<div><span style=\"color:rgb(38, 178, 221)\">.bg off/on：开启/关闭背景（默认：off）</span></div>"
             helpText += "<div><span style=\"color:rgb(38, 178, 221)\">.craft：自动合卡（需要进入合卡界面并打开Craft Detail，推荐使用英文版Raccon）</span></div>"
             helpText += "<div><span style=\"color:rgb(38, 178, 221)\">.dice：自动骰子（需要进入Dicer界面）</span></div>"
@@ -1249,7 +1288,7 @@
             helpText += "<div><span style=\"color:rgb(38, 178, 221)\">.refresh：加载新的怪物数值</span></div>"
             helpText += "<div><span style=\"color:rgb(38, 178, 221)\">.send：开启消息发送</span></div>"
             helpText += "<div><span style=\"color:rgb(38, 178, 221)\">.unsend：关闭消息发送</span></div>"
-            helpText += "<div><span style=\"color:rgb(38, 178, 221)\">.to：设置消息发送方式（0: 仅控制台 1: 公开发送 2: 仅自己可见）</span></div>"
+            helpText += "<div><span style=\"color:rgb(38, 178, 221)\">.to 0/1/2：设置消息发送方式（0: 仅控制台 1: 公开发送 2: 仅自己可见）</span></div>"
             helpText += "<div><span style=\"color:rgb(38, 178, 221)\">.craftstate：查看合卡统计</span></div>"
             helpText += "<div><span style=\"color:rgb(38, 178, 221)\">.dicestate：查看骰子统计</span></div>"
             helpText += "<div><span style=\"color:rgb(38, 178, 221)\">.craftmin [1-7]：设定最低合卡稀有度（默认：1）</span></div>"
@@ -2009,6 +2048,21 @@
             document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
                 "<div><span style=\"color: #7eef6d\">[SCRIPT] </span><span style=\"color: #8296ff\">Cleared dice result!</span></div>"
             chatScroll()
+            newMessageValue = ""
+            document.getElementById("message").value = newMessageValue
+        }
+        //使用方法：.frag，自动组合全部碎片
+        if (newMessageValue === ".frag") {
+            allFrag()
+            newMessageValue = ""
+            document.getElementById("message").value = newMessageValue
+        }
+        //使用方法：.endfrag，结束正在进行的forge
+        if (newMessageValue === ".endfrag") {
+            document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
+                "<div><span style=\"color: #7eef6d\">[SCRIPT] </span><span style=\"color: #ffa090\">Ending forge...</span></div>"
+            chatScroll()
+            goFrag = false
             newMessageValue = ""
             document.getElementById("message").value = newMessageValue
         }
