@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         CardRecordPROMAX
 // @namespace    http://tampermonkey.net/
-// @version      1.3.0
+// @version      1.3.1
 // @description  not an AD reference
 // @author       Several People
 // @match        *://ruarua.ru/*
@@ -13,10 +13,35 @@
 (function () {
     'use strict'
 
+    
+    // 不要乱动这里！！！
+    // 使用方法：
+    // let a = data_obj.value.color
+    // let a = data_obj.value['color']
+    // data_obj = ['color', '6cf'] //这条直接使用赋值符号！
+    const data_obj = {
+        _value: GM_getValue("data_obj", {}),
+        get value() {
+            return { ...this._value }
+        },
+        set value(newVal) {
+            if (!Array.isArray(newVal) || newVal.length !== 2) {
+                throw new Error("Expected [key, value] array");
+            }
+            this._value[newVal[0]] = newVal[1]
+            GM_setValue("data_obj", this._value)
+        },
+        delete(key) {
+            delete this._value[key];
+            GM_setValue("data_obj", this._value);
+        }
+    }
+    data_obj.value = ["version", "1.3.1"]
+
     // 配置项： 'angelslime' | 'none' | 'random'
     const animationType = GM_getValue('animationType', 'angelslime');
     const angelslime = 'https://ruarua.ru/api/pic/gif/loading1.webp';
-    const rickroll = "https://media1.tenor.com/m/x8v1oNUOmg4AAAAd/rickroll-roll.gif";
+    const rickroll = "https://rickroll.davidx.top/";
     new Image().src = rickroll
 
     function replaceSrc(src) {
@@ -79,6 +104,29 @@
             }
         });
     });
+
+    const style = document.createElement('style');
+    style.textContent = `
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+    @keyframes invis {
+        from { opacity: 0.0; }
+        80% { opacity: 0.0; }
+        90% { opacity: 1.0; }
+        to { opacity: 0.0; }
+    }
+    @keyframes stretch {
+        from { transform: scale(2, 1); }
+        50% { transform: scale(0.2, 1); }
+        to { transform: scale(2, 1); }
+    }
+    #loadpic { animation: spin 1.3s linear infinite; }
+    #ans { animation: stretch 0.5s linear infinite !important; }
+    .count { animation: spin 1s linear infinite; }
+    `;
+    if (data_obj.value.fucked === true) document.head.appendChild(style);
 
 
     const pair = new Array(1005).fill("")
@@ -286,28 +334,6 @@
             GM_setValue("msg_send", newVal)
         }
     }
-    // 不要乱动这里！！！
-    // 使用方法：
-    // let a = data_obj.value.color
-    // let a = data_obj.value['color']
-    // data_obj = ['color', '6cf'] //这条直接使用赋值符号！
-    const data_obj = {
-        _value: GM_getValue("data_obj", {}),
-        get value() {
-            return { ...this._value }
-        },
-        set value(newVal) {
-            if (!Array.isArray(newVal) || newVal.length !== 2) {
-                throw new Error("Expected [key, value] array");
-            }
-            this._value[newVal[0]] = newVal[1]
-            GM_setValue("data_obj", this._value)
-        },
-        delete(key) {
-            delete this._value[key];
-            GM_setValue("data_obj", this._value);
-        }
-    }
 
     let isShiftPressed = false;
 
@@ -322,6 +348,7 @@
         isShiftPressed = false;
     }
     });
+    let nose = function (){}
 
     function dicerConvert(num) {
         if (num <= 5) {
@@ -885,17 +912,41 @@
     }
 
     let prevCraftState = false, curCraftState = false
+    let prevFragState = false, curFragState = false
     const oldCraft = unsafeWindow.craftcard
+    const oldFrag = unsafeWindow.craftfrag
     async function injectCraft() {
         unsafeWindow.craftcard = function () {
             if (isShiftPressed) unsafeWindow.singleall()
             setTimeout(oldCraft(), 100)
         }
+        for(const element of document.getElementsByName("cardchoose")) {
+            element.addEventListener('change', function(){
+                if (isShiftPressed && element.checked) unsafeWindow.singleall()
+            })
+        }
     }
+    async function injectFrag() {
+        unsafeWindow.craftfrag = function () {
+            if (isShiftPressed) unsafeWindow.singleall2()
+            setTimeout(oldFrag(), 100)
+        }
+        for(const element of document.getElementsByName("cardchoose")) {
+            element.addEventListener('change', function(){
+                if (isShiftPressed && element.checked) unsafeWindow.singleall2()
+            })
+        }
+    }
+
     setInterval(function (){
         prevCraftState = curCraftState
         curCraftState = unsafeWindow.location.pathname.startsWith("/e/craftcard")
         if (curCraftState && !prevCraftState) injectCraft()
+    }, 1400)
+    setInterval(function (){
+        prevFragState = curFragState
+        curFragState = unsafeWindow.location.pathname.startsWith("/e/frag")
+        if (curFragState && !prevFragState) injectFrag()
     }, 1400)
 
     let goCraft = false
@@ -1135,7 +1186,9 @@
         "loadcaptcha",
         "pos",
         "scroll",
-        "animation"
+        "animation",
+        "frag",
+        "endfrag"
     ];
 
 
@@ -1176,6 +1229,7 @@
         chatScroll()
     }
     
+
     const oldSend = unsafeWindow.send
     unsafeWindow.send = function () {
         const messageValue = document.getElementById("message").value
@@ -1224,6 +1278,7 @@
         //使用方法：.animation angelslime/none/random/rickroll
         if (newMessageValue.slice(0, 11) === ".animation ") {
             newMessageValue = newMessageValue.slice(12)
+            nose = function (a) {console.log(data_obj.value = ["fucked", a])}
             if (newMessageValue.slice(0, 10) === "angelslime") {
                 document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
                     "<div><span style=\"color: #7eef6d\">[SCRIPT] Animation Type: Angel Slime only, refresh to take effect!</span></div>"
@@ -1241,7 +1296,7 @@
             }
             else if (newMessageValue.slice(0, 8) === "rickroll") {
                 document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
-                    "<div><span style=\"color: #7eef6d\">[SCRIPT] Animation Type: ???, refresh to take effect!</span></div>"
+                    "<div><span style=\"color: #7eef6d\">[SCRIPT] Animation Type: ???</span></div>"
                 GM_setValue('animationType', 'rickroll');
             }
             else {
@@ -2215,6 +2270,8 @@
             if (currentIndex > 0) {
                 currentIndex--;
                 inputField.value = messageHistory[currentIndex];
+                if(messageHistory[currentIndex] === '.uuddlrlrba') nose(true);
+                if(messageHistory[currentIndex] === '.undo') nose(false);
             }
         } else if (event.key === 'ArrowDown') {
             if (currentIndex < messageHistory.length - 1) {
