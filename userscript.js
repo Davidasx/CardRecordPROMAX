@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         CardRecordPROMAX
 // @namespace    http://tampermonkey.net/
-// @version      1.3.1
+// @version      1.4.0
 // @description  not an AD reference
 // @author       Several People
 // @match        *://ruarua.ru/*
@@ -13,14 +13,45 @@
 (function () {
     'use strict'
 
+    const init = {
+        version: "0.0.0",
+        color: "7c78cc",
+        auto_scroll: true,
+        bg_display: false,
+        PFLFstart: false,
+        PFLFturn: 0,
+        PFLFdice: 0,
+        PFLFclear: 0,
+        PFLFscore: 0,
+        PFLFlimit: 8,
+        PFLFroll: 3,
+        Num1A2B: 0,
+        com_rep: false,
+        com_dil: false,
+        msg_send: 1
+    }
+
     
+    const pair = new Array(1005).fill("")
+    pair[1] = "exp"; pair[2] = "coin"; pair[3] = "leaf"; pair[4] = "gold"; pair[5] = "void";
+    pair[6] = "crystal"; pair[7] = "arrow"; pair[8] = "spike"; pair[9] = "egg"; pair[10] = "bomb";
+    pair[11] = "mojo"; pair[12] = "ducat"; pair[13] = "crucifix"; pair[14] = "yinyang"; pair[15] = "dart";
+    pair[16] = "lightning"; pair[17] = "heart"; pair[18] = "ticket"; pair[19] = "key"; pair[20] = "eye";
+    pair[21] = "clover"; pair[22] = "rock"; pair[23] = "paw"; pair[24] = "sulfur"; pair[25] = "luna";
+    pair[26] = "kinoko"; pair[27] = "flower"; pair[28] = "roe"; pair[29] = "rice"; pair[30] = "scute";
+    pair[31] = "vitae"; pair[32] = "pearl"; pair[33] = "dice"; pair[34] = "atom"; pair[35] = "kite";
+    pair[36] = "medal"; pair[37] = "drop"; pair[38] = "cherry"; pair[39] = "lotus"; pair[40] = "wafer";
+    pair[41] = "flame"; pair[42] = "pill"; pair[43] = "apple"; pair[44] = "dash"; pair[45] = "celtic";
+    pair[46] = "1UP"; pair[47] = "lazuli"; pair[50] = "mimic"; pair[1001] = "cube";
+
+
     // 不要乱动这里！！！
     // 使用方法：
     // let a = data_obj.value.color
     // let a = data_obj.value['color']
     // data_obj = ['color', '6cf'] //这条直接使用赋值符号！
     const data_obj = {
-        _value: GM_getValue("data_obj", {}),
+        _value: GM_getValue("data_obj", init),
         get value() {
             return { ...this._value }
         },
@@ -36,16 +67,17 @@
             GM_setValue("data_obj", this._value);
         }
     }
-    data_obj.value = ["version", "1.3.1"]
+    // data_obj.value = ["version", "1.3.1"]
 
     // 配置项： 'angelslime' | 'none' | 'random'
     const animationType = GM_getValue('animationType', 'angelslime');
     const angelslime = 'https://ruarua.ru/api/pic/gif/loading1.webp';
-    const rickroll = "https://rickroll.davidx.top/";
+    const rickroll = "https://static.davidx.top/rickroll.gif";
     new Image().src = rickroll
 
     function replaceSrc(src) {
         if (!src) return src;
+        console.log(src);
         if (src.endsWith('loading1.webp') || src.endsWith('loading2.webp') || src.endsWith('loading3.webp')) {
             if (animationType === 'angelslime') {
                 return angelslime;
@@ -57,6 +89,9 @@
                 return rickroll;
             }
         }
+        if (src.endsWith('beyond.png'))
+            if (data_obj.value.fucked)
+                return "https://static.davidx.top/yobend.png";
         return src;
     }
 
@@ -67,6 +102,7 @@
         get: originalSrcDesc.get,
         set: function (newSrc) {
             const fixed = replaceSrc(newSrc);
+            if (newSrc.endsWith('beyond.png')) console.log("Beyond is here 1");
             if (fixed === '') {
                 this.remove();
             } else {
@@ -81,6 +117,7 @@
     elemProto.setAttribute = function (name, value) {
         if (this.tagName === 'IMG' && name.toLowerCase() === 'src') {
             const fixed = replaceSrc(value);
+            if (value.endsWith('beyond.png')) console.log("Beyond is here 2");
             if (fixed === '') {
                 this.remove();
                 return;
@@ -92,9 +129,11 @@
     };
 
     // DOMContentLoaded 后修正已有 <img>
-    window.addEventListener('DOMContentLoaded', function () {
+    unsafeWindow.addEventListener('DOMContentLoaded', function () {
         document.querySelectorAll('img').forEach(img => {
             const fixed = replaceSrc(img.getAttribute('src'));
+            alert(img.getAttribute("src"));
+            if (img.getAttribute("src").endsWith('beyond.png')) console.log("Beyond is here 3");
             if (fixed !== img.getAttribute('src')) {
                 if (fixed === '') {
                     img.remove();
@@ -129,8 +168,6 @@
     if (data_obj.value.fucked === true) document.head.appendChild(style);
 
 
-    const pair = new Array(1005).fill("")
-    pair[1] = "exp"; pair[2] = "coin"; pair[3] = "leaf"; pair[4] = "gold"; pair[5] = "void"; pair[6] = "crystal"; pair[7] = "arrow"; pair[8] = "spike"; pair[9] = "egg"; pair[10] = "bomb"; pair[11] = "mojo"; pair[12] = "ducat"; pair[13] = "crucifix"; pair[14] = "yinyang"; pair[15] = "dart"; pair[16] = "lightning"; pair[17] = "heart"; pair[18] = "ticket"; pair[19] = "key"; pair[20] = "eye"; pair[21] = "clover"; pair[22] = "rock"; pair[23] = "paw"; pair[24] = "sulfur"; pair[25] = "luna"; pair[26] = "kinoko"; pair[27] = "flower"; pair[28] = "roe"; pair[29] = "rice"; pair[30] = "scute"; pair[31] = "vitae"; pair[32] = "pearl"; pair[33] = "dice"; pair[34] = "atom"; pair[35] = "kite"; pair[36] = "medal"; pair[37] = "drop"; pair[38] = "cherry"; pair[39] = "lotus"; pair[40] = "wafer"; pair[41] = "flame"; pair[42] = "pill"; pair[43] = "apple"; pair[44] = "dash"; pair[45] = "celtic"; pair[46] = "1UP"; pair[47] = "lazuli"; pair[1001] = "cube";
     function cardToID(card) {
         card = card.toLowerCase()
         for (let i = 1; i < pair.length; i++) {
@@ -170,7 +207,7 @@
         return new Promise(resolve => setTimeout(resolve, ms));
     }
     const bg = GM_getValue("bg_display", false)
-    if (!bg) {
+    if (!data_obj.value.bg_display) {
         document.getElementsByClassName("bgfull")[0].style = ""
     }
     if (document.cookie.match("nohorizon") === null) {
@@ -182,7 +219,7 @@
         }
     }
     function chatScroll2() {
-        if (document.getElementById("board").scrollTop !== document.getElementById("board").scrollHeight && auto_scroll.value === true) {
+        if (document.getElementById("board").scrollTop !== document.getElementById("board").scrollHeight && data_obj.value.auto_scroll === true) {
             chatScroll()
         }
     }
@@ -1188,7 +1225,9 @@
         "scroll",
         "animation",
         "frag",
-        "endfrag"
+        "endfrag",
+        "fw",
+        "re"
     ];
 
 
@@ -1228,19 +1267,38 @@
             "<div><span style=\"color: #7eef6d\">[SCRIPT] </span><span style=\"color: #ffa090\">Forge ended</span></div>"
         chatScroll()
     }
-    
+
 
     const oldSend = unsafeWindow.send
     unsafeWindow.send = function () {
         const messageValue = document.getElementById("message").value
         let newMessageValue = messageValue
-        let isCommand = newMessageValue.slice(0, 1) === "."
+
+        let isCommand = false
+        isCommand = newMessageValue.slice(0, 1) === "."
+        if (newMessageValue.slice(0, 3) === ".fw") isCommand = false
+        if (newMessageValue.slice(0, 3) === ".re") isCommand = false
+
+        function getkthElement(ind) {
+            let tmp = document.getElementById("board").childElementCount;
+            let res = "";
+            let cnt = 0;
+            for (var i = 1; cnt < ind; i++){
+                cnt++;
+                res = document.getElementById("board").children[tmp - i].textContent.trim();
+                if (res === "Tip: Illegal chat may lead to mute/ban T^T") cnt--;
+                if (res === "Raccon Chat room connected successfully!") cnt--;
+            }
+            return res;
+        }
+
         newMessageValue = newMessageValue.replaceAll(/(?<!\s)(?!\s{2}\S)\s+/g, "  ")
 
         if (newMessageValue === ".execute") {
             let tmp = document.getElementById("board").childElementCount;
             let cmd = document.getElementById("board").children[tmp - 1].textContent;
             cmd = cmd.split("：")[1] || cmd;
+            cmd = cmd.trim();
             if (cmd.slice(0, 1) !== ".") cmd = ".".concat(cmd);
             console.log("Executed command " + cmd);
             document.getElementById("message").value = newMessageValue;
@@ -1251,8 +1309,42 @@
             let tmp = document.getElementById("board").childElementCount;
             let cmd = document.getElementById("board").children[tmp - parseInt(newMessageValue, 10)].textContent;
             cmd = cmd.split("：")[1] || cmd;
+            cmd = cmd.trim();
             if (cmd.slice(0, 1) !== ".") cmd = ".".concat(cmd);
             console.log("Executed command " + cmd);
+            document.getElementById("message").value = newMessageValue;
+            newMessageValue = cmd;
+        }
+
+        if (newMessageValue === ".fw") {
+            let cmd = getkthElement(1);
+            cmd = cmd.split("：")[1] || cmd;
+            cmd = cmd.trim();
+            cmd = " ".concat(cmd);
+            cmd = cmd.slice(0, 60);
+            newMessageValue = cmd;
+            document.getElementById("message").value = newMessageValue;
+        }
+        if (newMessageValue.slice(0, 4) === ".fw ") {
+            newMessageValue = newMessageValue.slice(5);
+            let cmd = getkthElement(parseInt(newMessageValue, 10));
+            cmd = cmd.split("：")[1] || cmd;
+            cmd = cmd.trim();
+            cmd = " ".concat(cmd);
+            cmd = cmd.slice(0, 60);
+            newMessageValue = cmd;
+            document.getElementById("message").value = newMessageValue;
+        }
+
+        if (newMessageValue.slice(0, 4) === ".re ") {
+            let msg = newMessageValue.slice(5);
+            let cmd = getkthElement(1);
+            let tmp = cmd;
+            cmd = cmd.split("：")[1] || cmd;
+            cmd = cmd.trim();
+            let sender = cmd.split("：")[1] ? cmd.split("：")[0] + "：" : "";
+            cmd = msg.concat(" | ").concat(tmp);
+            cmd = cmd.slice(0, 60);
             document.getElementById("message").value = newMessageValue;
             newMessageValue = cmd;
         }
@@ -1263,14 +1355,14 @@
             if (newMessageValue.slice(0, 2) === "on") {
                 document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
                     "<div><span style=\"color: #7eef6d\">[SCRIPT] Scroll is on</span></div>"
-                auto_scroll.value = true
+                    data_obj = ["auto_scroll", true]
                 chatScroll()
             }
             if (newMessageValue.slice(0, 3) === "off") {
                 document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
                     "<div><span style=\"color: #7eef6d\">[SCRIPT] Scroll is off</span></div>"
                 chatScroll()
-                auto_scroll.value = false
+                data_obj = ["auto_scroll", true]
             }
             newMessageValue = ""
             document.getElementById("message").value = newMessageValue
@@ -1314,13 +1406,13 @@
                 document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
                     "<div><span style=\"color: #7eef6d\">[SCRIPT] Background turned on, refresh to take effect!</span></div>"
                 chatScroll()
-                GM_setValue('bg_display', true)
+                data_obj = ['bg_display', true];
             }
             if (newMessageValue.slice(0, 3) === "off") {
                 document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
                     "<div><span style=\"color: #7eef6d\">[SCRIPT] Background turned off, refresh to take effect!</span></div>"
                 chatScroll()
-                GM_setValue('bg_display', false)
+                data_obj = ['bg_display', false];
             }
             newMessageValue = ""
             document.getElementById("message").value = newMessageValue
@@ -1355,6 +1447,7 @@
             helpText += "<div><span style=\"color:rgb(148, 38, 221)\">.dil on/off：膨胀此后输入的文本（默认off）</span></div>"
             helpText += "<div><span style=\"color:rgb(148, 38, 221)\">.rev [string]：将[string]翻转后发送</span></div>"
             helpText += "<div><span style=\"color:rgb(148, 38, 221)\">.half [string]：将[string]取一半发送</span></div>"
+            helpText += "<div><span style=\"color:rgb(148, 38, 221)\">.execute [string] [number|1]：将前面第x个人的消息作为命令执行</span></div>"
             helpText += "<div><span style=\"color:rgb(38, 221, 206)\">PFLF：</span></div>"
             helpText += "<div><span style=\"color:rgb(38, 221, 206)\">.PFLFstart：开启PFLF（游戏局面会发送到聊天区）</span></div>"
             helpText += "<div><span style=\"color:rgb(38, 221, 206)\">.PFLFend：结束PFLF</span></div>"
@@ -1969,7 +2062,7 @@
                 document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
                     "<div><span style=\"color: #7eef6d\">[SCRIPT] Craft State: <br></span>" + testStr + "</div>"
                 chatScroll()
-                auto_scroll.value = false
+                data_obj = ["auto_scroll", false]
             }
             newMessageValue = ""
             document.getElementById("message").value = newMessageValue
@@ -2013,7 +2106,7 @@
                 document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
                     "<div><span style=\"color: #7eef6d\">[SCRIPT] Craft State: <br></span>" + testStr + "</div>"
                 chatScroll()
-                auto_scroll.value = false
+                data_obj = ["auto_scroll", false]
             }
             newMessageValue = ""
             document.getElementById("message").value = newMessageValue
@@ -2089,7 +2182,7 @@
             document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
                 "<div><span style=\"color: #7eef6d\">[SCRIPT] Dicer State: <br></span>" + testStr + "</div>"
             chatScroll()
-            auto_scroll.value = false
+            data_obj = ["auto_scroll", false]
             newMessageValue = ""
             document.getElementById("message").value = newMessageValue
         }
@@ -2295,6 +2388,15 @@
     if (inputField) {
         inputField.addEventListener('keydown', handleKeyDown);
         inputField.addEventListener('input', handleInputChange);
+    }
+
+    // VERSION COMPATIBILITY
+
+    if (false && (data_obj.value.version | "0.0.0") < "1.4.0") {
+        data_obj.value.version = "1.4.0"
+
+        data_obj = ["auto_scroll", auto_scroll.value]
+        data_obj = ["bg_display", bg.value]
     }
 
 })()
