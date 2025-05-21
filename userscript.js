@@ -69,7 +69,7 @@
     }
     // data_obj.value = ["version", "1.3.1"]
 
-    // 配置项： 'angelslime' | 'none' | 'random'
+    // 配置项： 'angelslime' | 'none' | 'random' | 'rickroll'
     const animationType = GM_getValue('animationType', 'angelslime');
     const angelslime = 'https://ruarua.ru/api/pic/gif/loading1.webp';
     const rickroll = "https://static.davidx.top/rickroll.gif";
@@ -375,17 +375,17 @@
     let isShiftPressed = false;
 
     document.addEventListener('keydown', (event) => {
-    if (event.key === 'Shift') {
-        isShiftPressed = true;
-    }
+        if (event.key === 'Shift') {
+            isShiftPressed = true;
+        }
     });
 
     document.addEventListener('keyup', (event) => {
-    if (event.key === 'Shift') {
-        isShiftPressed = false;
-    }
+        if (event.key === 'Shift') {
+            isShiftPressed = false;
+        }
     });
-    let nose = function (){}
+    let nose = function () { }
 
     function dicerConvert(num) {
         if (num <= 5) {
@@ -957,8 +957,8 @@
             if (isShiftPressed) unsafeWindow.singleall()
             setTimeout(oldCraft(), 100)
         }
-        for(const element of document.getElementsByName("cardchoose")) {
-            element.addEventListener('change', function(){
+        for (const element of document.getElementsByName("cardchoose")) {
+            element.addEventListener('change', function () {
                 if (isShiftPressed && element.checked) unsafeWindow.singleall()
             })
         }
@@ -968,19 +968,19 @@
             if (isShiftPressed) unsafeWindow.singleall2()
             setTimeout(oldFrag(), 100)
         }
-        for(const element of document.getElementsByName("cardchoose")) {
-            element.addEventListener('change', function(){
+        for (const element of document.getElementsByName("cardchoose")) {
+            element.addEventListener('change', function () {
                 if (isShiftPressed && element.checked) unsafeWindow.singleall2()
             })
         }
     }
 
-    setInterval(function (){
+    setInterval(function () {
         prevCraftState = curCraftState
         curCraftState = unsafeWindow.location.pathname.startsWith("/e/craftcard")
         if (curCraftState && !prevCraftState) injectCraft()
     }, 1400)
-    setInterval(function (){
+    setInterval(function () {
         prevFragState = curFragState
         curFragState = unsafeWindow.location.pathname.startsWith("/e/frag")
         if (curFragState && !prevFragState) injectFrag()
@@ -1101,6 +1101,45 @@
     }
 
 
+
+
+    let goFrag = false
+    async function allFrag() {
+        if (unsafeWindow.location.pathname.startsWith("/e/frag") === false && unsafeWindow.location.pathname.startsWith("/frag") === false) {
+            document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
+                "<div><span style=\"color: #7eef6d\">[SCRIPT] </span><span style=\"color: #7f0000\">Error: Not forging!</span></div>"
+            chatScroll()
+            return
+        }
+        document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
+            "<div><span style=\"color: #7eef6d\">[SCRIPT] </span><span style=\"color: #ffa090\">Forging...</span></div>"
+        chatScroll()
+        goFrag = true
+        let canFrag = true
+        while (goFrag && canFrag) {
+            canFrag = false
+            for (let i = document.getElementsByName("cardchoose").length - 1; i >= 0; i--) {
+                if (canFrag == false && goFrag && parseInt(document.getElementsByName("cardchoose")[i].labels[0].innerText.match(/\d+/)[0], 10) >= 4 + parseInt(document.getElementsByName("cardchoose")[i].value.match(/(?<=\.)\d+/)[0], 10)) {
+                    let pendingRarity = parseInt(document.getElementsByName("cardchoose")[i].value.match(/(?<=\.)\d+/)[0], 10)
+                    document.getElementsByName("cardchoose")[i].checked = 1
+                    await delay(200)
+                    document.getElementById("nownum").innerHTML = Math.floor(parseInt(document.getElementsByName("cardchoose")[i].labels[0].innerText.match(/\d+/)[0], 10) / (4 + pendingRarity))
+                    unsafeWindow.craftchange2()
+                    await delay(200)
+                    unsafeWindow.craftfrag()
+                    while (document.getElementsByName("cardchoose").length > i && document.getElementsByName("cardchoose")[i].checked) {
+                        await delay(100)
+                    }
+                    await delay(500)
+                    canFrag = true
+                }
+            }
+        }
+        document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
+            "<div><span style=\"color: #7eef6d\">[SCRIPT] </span><span style=\"color: #ffa090\">Forge ended</span></div>"
+        chatScroll()
+    }
+
     const AppendToChat = function () {
         if (document.getElementById("message").value.trim() === "") return;
 
@@ -1183,6 +1222,46 @@
         return closestString;
     }
 
+    const oldWS = unsafeWindow.ws;
+    const NOCHAT_STORAGE_KEY = 'nochat_enabled';
+    let noChat = GM_getValue(NOCHAT_STORAGE_KEY, false); // 读取保存的状态，默认false
+    let isIntercepting = false;
+    const oldChatroom = unsafeWindow.chatroom;
+
+    function installInterceptor() {
+        if (isIntercepting) {
+            document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
+                "<div><span style=\"color: #7eef6d\">[SCRIPT] Chat interceptor already installed!</span></div>"
+            return
+        }
+        isIntercepting = true;
+        unsafeWindow.ws.close()
+        unsafeWindow.chatroom = function () { }
+        document.getElementById("board").innerHTML = ""
+        document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
+            "<div><span style=\"color: #7eef6d\">[SCRIPT] Chat interceptor installed!</span></div>"
+    }
+
+    function uninstallInterceptor() {
+        if (!isIntercepting) {
+            document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
+                "<div><span style=\"color: #7eef6d\">[SCRIPT] Chat interceptor not installed!</span></div>"
+            return
+        }
+        isIntercepting = false;
+        unsafeWindow.chatroom = oldChatroom;
+        unsafeWindow.ws = oldWS
+        chatroom()
+        document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
+            "<div><span style=\"color: #7eef6d\">[SCRIPT] Chat interceptor uninstalled!</span></div>"
+    }
+
+    // 页面加载时根据保存状态决定是否启用
+    if (noChat) {
+        installInterceptor();
+    } else {
+    }
+
     const CommandList = [
         "rep",
         "rev",
@@ -1230,43 +1309,6 @@
         "re"
     ];
 
-
-    let goFrag = false
-    async function allFrag() {
-        if (unsafeWindow.location.pathname.startsWith("/e/frag") === false && unsafeWindow.location.pathname.startsWith("/frag") === false) {
-            document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
-                "<div><span style=\"color: #7eef6d\">[SCRIPT] </span><span style=\"color: #7f0000\">Error: Not forging!</span></div>"
-            chatScroll()
-            return
-        }
-        document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
-            "<div><span style=\"color: #7eef6d\">[SCRIPT] </span><span style=\"color: #ffa090\">Forging...</span></div>"
-        chatScroll()
-        goFrag = true
-        let canFrag = true
-        while (goFrag && canFrag) {
-            canFrag = false
-            for (let i = document.getElementsByName("cardchoose").length - 1; i >= 0; i--) {
-                if (canFrag == false && goFrag && parseInt(document.getElementsByName("cardchoose")[i].labels[0].innerText.match(/\d+/)[0], 10) >= 4 + parseInt(document.getElementsByName("cardchoose")[i].value.match(/(?<=\.)\d+/)[0], 10)) {
-                    let pendingRarity = parseInt(document.getElementsByName("cardchoose")[i].value.match(/(?<=\.)\d+/)[0], 10)
-                    document.getElementsByName("cardchoose")[i].checked = 1
-                    await delay(200)
-                    document.getElementById("nownum").innerHTML = Math.floor(parseInt(document.getElementsByName("cardchoose")[i].labels[0].innerText.match(/\d+/)[0], 10) / (4 + pendingRarity))
-                    unsafeWindow.craftchange2()
-                    await delay(200)
-                    unsafeWindow.craftfrag()
-                    while (document.getElementsByName("cardchoose").length > i && document.getElementsByName("cardchoose")[i].checked) {
-                        await delay(100)
-                    }
-                    await delay(500)
-                    canFrag = true
-                }
-            }
-        }
-        document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
-            "<div><span style=\"color: #7eef6d\">[SCRIPT] </span><span style=\"color: #ffa090\">Forge ended</span></div>"
-        chatScroll()
-    }
 
 
     const oldSend = unsafeWindow.send
@@ -1370,7 +1412,7 @@
         //使用方法：.animation angelslime/none/random/rickroll
         if (newMessageValue.slice(0, 11) === ".animation ") {
             newMessageValue = newMessageValue.slice(12)
-            nose = function (a) {console.log(data_obj.value = ["fucked", a])}
+            nose = function (a) { console.log(data_obj.value = ["fucked", a]) }
             if (newMessageValue.slice(0, 10) === "angelslime") {
                 document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
                     "<div><span style=\"color: #7eef6d\">[SCRIPT] Animation Type: Angel Slime only, refresh to take effect!</span></div>"
@@ -1388,12 +1430,12 @@
             }
             else if (newMessageValue.slice(0, 8) === "rickroll") {
                 document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
-                    "<div><span style=\"color: #7eef6d\">[SCRIPT] Animation Type: ???</span></div>"
+                    "<div><span style=\"color: #7eef6d\">[SCRIPT] Animation Type: ???, refresh to take effect!</span></div>"
                 GM_setValue('animationType', 'rickroll');
             }
             else {
                 document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
-                    "<div><span style=\"color: #7eef6d\">[SCRIPT] </span><span style=\"color: #7f0000\">Error: Invalid animation type, can only be angelslime/none/random</span></div>"
+                    "<div><span style=\"color: #7eef6d\">[SCRIPT] </span><span style=\"color: #7f0000\">Error: Invalid animation type, can only be angelslime/none/random/rickroll!</span></div>"
             }
             chatScroll()
             newMessageValue = ""
@@ -1442,6 +1484,7 @@
             helpText += "<div><span style=\"color:rgb(38, 178, 221)\">.craftmax [1-7]：设定最高合卡稀有度（默认：4）</span></div>"
             helpText += "<div><span style=\"color:rgb(38, 178, 221)\">.setmode [card/all] [1-7/all] true/false：设定是否合成特定稀有度的特定卡片（默认不合成Dice，Epic及以上Flame和所有Legendary及以上卡片）</span></div>"
             helpText += "<div><span style=\"color:rgb(38, 178, 221)\">.getmode [card]：查看卡片合成设定模式</span></div>"
+            helpText += "<div><span style=\"color:rgb(38, 178, 221)\">.chat on/off：断开/连接聊天室</span></div>"
             helpText += "<div><span style=\"color:rgb(148, 38, 221)\">整活类：</span></div>"
             helpText += "<div><span style=\"color:rgb(148, 38, 221)\">.rep on/off：替换此后输入的一些文本（默认off）</span></div>"
             helpText += "<div><span style=\"color:rgb(148, 38, 221)\">.dil on/off：膨胀此后输入的文本（默认off）</span></div>"
@@ -1991,6 +2034,20 @@
             newMessageValue = ""
             document.getElementById("message").value = newMessageValue
         }
+        //使用方法：.chat on/off
+        if (newMessageValue.slice(0, 6) === ".chat ") {
+            newMessageValue = newMessageValue.slice(7)
+            if (newMessageValue.slice(0, 2) === "on") {
+                GM_setValue(NOCHAT_STORAGE_KEY, false);
+                uninstallInterceptor();
+            }
+            if (newMessageValue.slice(0, 3) === "off") {
+                GM_setValue(NOCHAT_STORAGE_KEY, true);
+                installInterceptor();
+            }
+            newMessageValue = ""
+            document.getElementById("message").value = newMessageValue
+        }
         //使用方法：.craft，根据设定的规则自动合成
         if (newMessageValue === ".craft") {
             allCraft()
@@ -2363,8 +2420,8 @@
             if (currentIndex > 0) {
                 currentIndex--;
                 inputField.value = messageHistory[currentIndex];
-                if(messageHistory[currentIndex] === '.uuddlrlrba') nose(true);
-                if(messageHistory[currentIndex] === '.undo') nose(false);
+                if (messageHistory[currentIndex] === '.uuddlrlrba') nose(true);
+                if (messageHistory[currentIndex] === '.undo') nose(false);
             }
         } else if (event.key === 'ArrowDown') {
             if (currentIndex < messageHistory.length - 1) {
