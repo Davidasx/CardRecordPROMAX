@@ -31,7 +31,7 @@
         msg_send: 1
     }
 
-    
+
     const pair = new Array(1005).fill("")
     pair[1] = "exp"; pair[2] = "coin"; pair[3] = "leaf"; pair[4] = "gold"; pair[5] = "void";
     pair[6] = "crystal"; pair[7] = "arrow"; pair[8] = "spike"; pair[9] = "egg"; pair[10] = "bomb";
@@ -522,6 +522,64 @@
             GM_setValue("craftAtt", newVal)
         }
     }
+
+    // client.js
+
+    // Function to post data to the server
+    async function postDataToServer(data) {
+        try {
+            const response = await fetch('https://raccon.davidx.top/api/data', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data),
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const responseData = await response.json();
+            console.log('Post successful:', responseData);
+            return responseData;
+        } catch (error) {
+            console.error('Error posting data:', error);
+            throw error;
+        }
+    }
+
+    // Function to request data from the server
+    async function getDataFromServer() {
+        try {
+            const response = await fetch('https://raccon.davidx.top/api/data');
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            console.log('Received data:', data);
+            return data;
+        } catch (error) {
+            console.error('Error fetching data:', error);
+            throw error;
+        }
+    }
+
+    // Example usage
+    // (async () => {
+    //     // Post some data to the server
+    //     await postDataToServer({
+    //         userId: 123,
+    //         message: "Hello from client!"
+    //     });
+
+    //     // Request data from the server
+    //     const serverData = await getDataFromServer();
+    //     console.log('Final server data:', serverData);
+    // })();
+
     // 初始内置数据表
     const defaultMobValues = {
         "Black Hole": -1,
@@ -782,7 +840,21 @@
 
                 document.querySelector('img[src*="/mob/"]').parentElement.children[document.querySelector('img[src*="/mob/"]').parentElement.children.length - 1].innerHTML =
                     document.querySelector('img[src*="/mob/"]').parentElement.children[document.querySelector('img[src*="/mob/"]').parentElement.children.length - 1].innerHTML +
-                    "<br><span style=\"color: #7eef6d\">" + nextTier(mobName, mobRarity, myATK) + "</span>"
+                    "<br><span style=\"color: #7eef6d\">" + nextTier(mobName, mobRarity, myATK) + "</span>";
+                (async () => {
+                    // Post mob data to the server
+                    console.log("Posting...")
+                    const extractPos = str => {
+                        const match = str.match(/pos=(-?\d+)/);
+                        return match ? match[1] : null;
+                    };
+                    await postDataToServer({
+                        pos: extractPos(unsafeWindow.location.href),
+                        name: mobName,
+                        rarity: mobRarity,
+                        timestamp: parseInt(document.getElementById("post-193").innerHTML.match(/(?<=targetTimestamp\s=\s)\d+/)[0], 10),
+                    });
+                })();
             }
         }
     }
@@ -1325,11 +1397,12 @@
             let tmp = document.getElementById("board").childElementCount;
             let res = "";
             let cnt = 0;
-            for (var i = 1; cnt < ind; i++){
+            for (var i = 1; cnt < ind; i++) {
                 cnt++;
                 res = document.getElementById("board").children[tmp - i].textContent.trim();
                 if (res === "Tip: Illegal chat may lead to mute/ban T^T") cnt--;
                 if (res === "Raccon Chat room connected successfully!") cnt--;
+                if (res.trim().slice(0, 8) === "[SCRIPT]") cnt--;
             }
             return res;
         }
@@ -1390,6 +1463,16 @@
             document.getElementById("message").value = newMessageValue;
             newMessageValue = cmd;
         }
+        
+        if (newMessageValue === ".reqmob") {
+            (async () => {
+                const serverData = await getDataFromServer();
+                console.log('mob data:', serverData);
+            })();
+            newMessageValue = "";
+            document.getElementById("message").value = newMessageValue;
+        }
+
 
         //使用方法：.scroll on或者.scroll off，开启或关闭聊天室自动滚动
         if (newMessageValue.slice(0, 8) === ".scroll ") {
@@ -1397,7 +1480,7 @@
             if (newMessageValue.slice(0, 2) === "on") {
                 document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
                     "<div><span style=\"color: #7eef6d\">[SCRIPT] Scroll is on</span></div>"
-                    data_obj = ["auto_scroll", true]
+                data_obj = ["auto_scroll", true]
                 chatScroll()
             }
             if (newMessageValue.slice(0, 3) === "off") {
