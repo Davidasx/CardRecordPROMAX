@@ -1723,6 +1723,13 @@
             helpText += "<div><span style=\"color:rgb(38, 178, 221)\">.setmode [card/all] [1-7/all] true/false：设定是否合成特定稀有度的特定卡片（默认不合成Dice，Epic及以上Flame和所有Legendary及以上卡片）</span></div>"
             helpText += "<div><span style=\"color:rgb(38, 178, 221)\">.getmode [card]：查看卡片合成设定模式</span></div>"
             helpText += "<div><span style=\"color:rgb(38, 178, 221)\">.chat on/off：断开/连接聊天室</span></div>"
+            helpText += "<div><span style=\"color:rgb(38, 178, 221)\">.reqmob：查询各区域怪物情况</span></div>"
+            helpText += "<div><span style=\"color:rgb(38, 178, 221)\">.sharemob/.shmob：分享当前区域怪物（发送类似M4.E.Mojo Slime.2的消息）</span></div>"
+            helpText += "<div><span style=\"color:rgb(221, 218, 38)\">配置类：</span></div>"
+            helpText += "<div><span style=\"color:rgb(221, 218, 38)\">.setting [key] [value]：直接修改设置key为value</span></div>"
+            helpText += "<div><span style=\"color:rgb(221, 218, 38)\">可用key：</span></div>"
+            helpText += "<div><span style=\"color:rgb(221, 218, 38)\">         fuw：是否增加打怪直到成功按钮（true/false）</span></div>"
+            helpText += "<div><span style=\"color:rgb(221, 218, 38)\">         auto_scroll：聊天室自动滚动（true/false）</span></div>"
             helpText += "<div><span style=\"color:rgb(148, 38, 221)\">整活类：</span></div>"
             helpText += "<div><span style=\"color:rgb(148, 38, 221)\">.rep on/off：替换此后输入的一些文本（默认off）</span></div>"
             helpText += "<div><span style=\"color:rgb(148, 38, 221)\">.dil on/off：膨胀此后输入的文本（默认off）</span></div>"
@@ -1817,6 +1824,8 @@
             let val = newMessageValue.split(' ')[2]
             data_obj.value = [set, eval(val)]
             console.log(set + " set to " + eval(val))
+            document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
+                "<div><span style=\"color: #7eef6d\">[SCRIPT] </span><span style=\"color: #ffa090\">" + set + " set to " + eval(val) + "</span></div>"
             newMessageValue = ""
             document.getElementById("message").value = newMessageValue
         }
@@ -2768,6 +2777,7 @@
 
         }
     }
+
     setInterval(function () {
         if (data_obj.value.fuw) {
             try { AutoFight() }
