@@ -28,7 +28,8 @@
         Num1A2B: 0,
         com_rep: false,
         com_dil: false,
-        msg_send: 1
+        msg_send: 1,
+        fuw: true,
     }
 
 
@@ -42,7 +43,7 @@
     pair[31] = "vitae"; pair[32] = "pearl"; pair[33] = "dice"; pair[34] = "atom"; pair[35] = "kite";
     pair[36] = "medal"; pair[37] = "drop"; pair[38] = "cherry"; pair[39] = "lotus"; pair[40] = "wafer";
     pair[41] = "flame"; pair[42] = "pill"; pair[43] = "apple"; pair[44] = "dash"; pair[45] = "celtic";
-    pair[46] = "1UP"; pair[47] = "lazuli"; pair[50] = "mimic"; pair[1001] = "cube";
+    pair[46] = "1UP"; pair[47] = "lazuli"; pair[1001] = "cube";
 
 
     // 不要乱动这里！！！
@@ -69,6 +70,9 @@
     }
     // data_obj.value = ["version", "1.3.1"]
 
+    var shmob = {}
+    var reqmob = {}
+
     // 配置项： 'angelslime' | 'none' | 'random' | 'rickroll'
     const animationType = GM_getValue('animationType', 'angelslime');
     const angelslime = 'https://ruarua.ru/api/pic/gif/loading1.webp';
@@ -77,7 +81,7 @@
 
     function replaceSrc(src) {
         if (!src) return src;
-        console.log(src);
+        // console.log(src);
         if (src.endsWith('loading1.webp') || src.endsWith('loading2.webp') || src.endsWith('loading3.webp')) {
             if (animationType === 'angelslime') {
                 return angelslime;
@@ -102,7 +106,7 @@
         get: originalSrcDesc.get,
         set: function (newSrc) {
             const fixed = replaceSrc(newSrc);
-            if (newSrc.endsWith('beyond.png')) console.log("Beyond is here 1");
+            // if (newSrc.endsWith('beyond.png')) console.log("Beyond is here 1");
             if (fixed === '') {
                 this.remove();
             } else {
@@ -117,7 +121,7 @@
     elemProto.setAttribute = function (name, value) {
         if (this.tagName === 'IMG' && name.toLowerCase() === 'src') {
             const fixed = replaceSrc(value);
-            if (value.endsWith('beyond.png')) console.log("Beyond is here 2");
+            // if (value.endsWith('beyond.png')) console.log("Beyond is here 2");
             if (fixed === '') {
                 this.remove();
                 return;
@@ -132,8 +136,8 @@
     unsafeWindow.addEventListener('DOMContentLoaded', function () {
         document.querySelectorAll('img').forEach(img => {
             const fixed = replaceSrc(img.getAttribute('src'));
-            alert(img.getAttribute("src"));
-            if (img.getAttribute("src").endsWith('beyond.png')) console.log("Beyond is here 3");
+            // alert(img.getAttribute("src"));
+            // if (img.getAttribute("src").endsWith('beyond.png')) console.log("Beyond is here 3");
             if (fixed !== img.getAttribute('src')) {
                 if (fixed === '') {
                     img.remove();
@@ -219,9 +223,11 @@
         }
     }
     function chatScroll2() {
-        if (document.getElementById("board").scrollTop !== document.getElementById("board").scrollHeight && data_obj.value.auto_scroll === true) {
-            chatScroll()
-        }
+        try {
+            if (document.getElementById("board").scrollTop !== document.getElementById("board").scrollHeight && data_obj.value.auto_scroll === true) {
+                chatScroll()
+            }
+        } catch { };
     }
     setInterval(chatScroll2, 1000)
     async function betterButton() {
@@ -459,7 +465,6 @@
         }
         document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
             "<div><span style=\"color: #7eef6d\">[SCRIPT] </span><span style=\"color: #7f0000\">Error: Rarity not found!</span></div>"
-        chatScroll()
         return 0
     }
     function rarityToInt(rar) {
@@ -742,6 +747,35 @@
         }
         if (converted <= 4) return 0
     }
+    function calcPos(pos) {
+        pos = parseInt(pos, 10);
+        switch (pos) {
+            case 1: return "M1";
+            case 2: return "M2";
+            case 3: return "M3";
+            case 4: return "M4";
+            case 5: return "M5";
+            case 6: return "M6";
+            case 11: return "G1";
+            case 12: return "G2";
+            case 13: return "G3";
+            case 14: return "G4";
+            case 21: return "C1";
+            case 22: return "C2";
+            case 23: return "C3";
+            case 24: return "C4";
+            case 31: return "I1";
+            case 32: return "I2";
+            case 33: return "I3";
+            case 34: return "I4";
+            case 41: return "F1";
+            case 42: return "F2";
+            case 43: return "F3";
+            case -1: return "H1";
+            case -2: return "H2";
+        }
+        return "";
+    }
     function nextTier(mob, rar, ATK) {
         let DEF = DEFcalc(mob, rar)
         if (rar === "Ultimate") {
@@ -822,43 +856,157 @@
     setInterval(calcDEFdisplay, 1000)
 
     function ATKdisplay() {
-        if (unsafeWindow.location.pathname.startsWith("/e/mob") === true || unsafeWindow.location.pathname.startsWith("/e/limit") === true || unsafeWindow.location.pathname.startsWith("/mob") === true || unsafeWindow.location.pathname.startsWith("/limit") === true) {
-            if (document.querySelector('img[src*="/mob/"]') !== null && document.querySelector('img[src*="/mob/"]').parentElement.className !== "getboss show" &&
-                document.querySelector('img[src*="/mob/"]').parentElement.children[document.querySelector('img[src*="/mob/"]').parentElement.children.length - 1].innerHTML.includes("Tier") === false) {
-                let mobName = document.querySelector('img[src*="/mob/"]').parentElement.children[document.querySelector('img[src*="/mob/"]').parentElement.children.length - 1].innerHTML.match(/^.*?(?=<br>)/)[0]
-                let mobRarity = document.querySelector('img[src*="/mob/"]').parentElement.children[document.querySelector('img[src*="/mob/"]').parentElement.children.length - 1].innerHTML.match(/(?<=">).*?(?=<\/span>)/)[0]
-                let myATK = document.querySelector("tr:nth-child(3) td:nth-child(4) span").innerHTML
-                if (myATK.includes(".")) {
-                    myATK = parseInt(myATK.match(/^\d+/), 10) + parseInt(myATK.match(/(?<=\.)\d+/), 10) / 10
-                } else {
-                    myATK = parseInt(myATK, 10)
+        try {
+            if (unsafeWindow.location.pathname.startsWith("/e/mob") === true || unsafeWindow.location.pathname.startsWith("/e/limit") === true || unsafeWindow.location.pathname.startsWith("/mob") === true || unsafeWindow.location.pathname.startsWith("/limit") === true) {
+                if (document.querySelector('img[src*="/mob/"]') !== null && document.querySelector('img[src*="/mob/"]').parentElement.className !== "getboss show" &&
+                    document.querySelector('img[src*="/mob/"]').parentElement.children[document.querySelector('img[src*="/mob/"]').parentElement.children.length - 1].innerHTML.includes("Tier") === false) {
+                    let mobName = document.querySelector('img[src*="/mob/"]').parentElement.children[document.querySelector('img[src*="/mob/"]').parentElement.children.length - 1].innerHTML.match(/^.*?(?=<br>)/)[0]
+                    let mobRarity = document.querySelector('img[src*="/mob/"]').parentElement.children[document.querySelector('img[src*="/mob/"]').parentElement.children.length - 1].innerHTML.match(/(?<=">).*?(?=<\/span>)/)[0]
+                    let myATK = document.querySelector("tr:nth-child(3) td:nth-child(4) span").innerHTML
+                    if (myATK.includes(".")) {
+                        myATK = parseInt(myATK.match(/^\d+/), 10) + parseInt(myATK.match(/(?<=\.)\d+/), 10) / 10
+                    } else {
+                        myATK = parseInt(myATK, 10)
+                    }
+                    document.querySelector('img[src*="/mob/"]').parentElement.children[document.querySelector('img[src*="/mob/"]').parentElement.children.length - 1].innerHTML =
+                        document.querySelector('img[src*="/mob/"]').parentElement.children[document.querySelector('img[src*="/mob/"]').parentElement.children.length - 1].innerHTML +
+                        "<br><span style=\"color: #7eef6d\">DEF: " + ATKprint(DEFcalc(mobName, mobRarity) + 0.00075) + "</span>"
+
+
+                    document.querySelector('img[src*="/mob/"]').parentElement.children[document.querySelector('img[src*="/mob/"]').parentElement.children.length - 1].innerHTML =
+                        document.querySelector('img[src*="/mob/"]').parentElement.children[document.querySelector('img[src*="/mob/"]').parentElement.children.length - 1].innerHTML +
+                        "<br><span style=\"color: #7eef6d\">" + nextTier(mobName, mobRarity, myATK) + "</span>";
+                    (async () => {
+                        // Post mob data to the server
+                        console.log("Posting...")
+                        const extractPos = str => {
+                            const match = str.match(/pos=(-?\d+)/);
+                            return match ? match[1] : null;
+                        };
+                        // Find the first element with innerText "Threshould"
+                        const thresholdElement = Array.from(document.querySelectorAll('*')).find(el =>
+                            el.innerText.trim() === "Threshold" || el.innerText.trim() === "Now Health"
+                        );
+                        const nextElement = thresholdElement?.nextElementSibling;
+                        const beyond = document.querySelectorAll('img[src$="beyond.png"]').length;
+
+                        console.log(nextElement); // Logs the next element or null
+                        const a = {
+                            pos: extractPos(unsafeWindow.location.href),
+                            name: mobName,
+                            threshold: parseInt(nextElement.innerText.trim(), 10),
+                            rarity: mobRarity,
+                            beyond: beyond,
+                            timestamp: parseInt(document.getElementById("post-193").innerHTML.match(/(?<=targetTimestamp\s=\s)\d+/)[0], 10),
+                        };
+                        shmob = { ...a };
+                        await postDataToServer(a);
+                    })();
                 }
-                document.querySelector('img[src*="/mob/"]').parentElement.children[document.querySelector('img[src*="/mob/"]').parentElement.children.length - 1].innerHTML =
-                    document.querySelector('img[src*="/mob/"]').parentElement.children[document.querySelector('img[src*="/mob/"]').parentElement.children.length - 1].innerHTML +
-                    "<br><span style=\"color: #7eef6d\">DEF: " + ATKprint(DEFcalc(mobName, mobRarity) + 0.00075) + "</span>"
-
-
-                document.querySelector('img[src*="/mob/"]').parentElement.children[document.querySelector('img[src*="/mob/"]').parentElement.children.length - 1].innerHTML =
-                    document.querySelector('img[src*="/mob/"]').parentElement.children[document.querySelector('img[src*="/mob/"]').parentElement.children.length - 1].innerHTML +
-                    "<br><span style=\"color: #7eef6d\">" + nextTier(mobName, mobRarity, myATK) + "</span>";
-                (async () => {
-                    // Post mob data to the server
-                    console.log("Posting...")
-                    const extractPos = str => {
-                        const match = str.match(/pos=(-?\d+)/);
-                        return match ? match[1] : null;
-                    };
-                    await postDataToServer({
-                        pos: extractPos(unsafeWindow.location.href),
-                        name: mobName,
-                        rarity: mobRarity,
-                        timestamp: parseInt(document.getElementById("post-193").innerHTML.match(/(?<=targetTimestamp\s=\s)\d+/)[0], 10),
-                    });
-                })();
             }
-        }
+        } catch { };
     }
     setInterval(ATKdisplay, 1000)
+
+    function renderMobList() {
+        function createElementByInfo(mob, rarity, beyond, timestamp) {
+            if (!mob || !rarity || !timestamp) return document.createElement('div')
+            const E = document.createElement('div')
+            const Mob = document.createElement('div')
+            Mob.innerHTML = mob
+            Mob.style.fontSize = '16'
+            Mob.style.fontWeight = '400'
+            const Rarity = document.createElement('div')
+            Rarity.innerHTML = rarity
+            Rarity.style.color = rarityToColor(rarity)
+            if (beyond) Rarity.style.backgroundColor = '#DDA0DD'
+            const Timestamp = document.createElement('div')
+            let timeLeft = Date.now() / 1000 - timestamp
+            Timestamp.innerHTML = Math.abs(Math.floor(timeLeft))
+            Timestamp.style.color = (timeLeft > 0 ? '#ff3f7f' : '#3fff7f')
+            Timestamp.style.fontSize = '12'
+            E.appendChild(Mob)
+            E.appendChild(Rarity)
+            E.appendChild(Timestamp)
+            E.style.display = 'flex'
+            E.style.flexDirection = 'column'
+            E.style.alignItems = 'center'
+            return E
+        }
+        function createRows(mobs) {
+            const Row = document.createElement('div')
+            Row.style.display = 'flex'
+            Row.style.flexDirection = 'row'
+            Row.style.justifyContent = 'center'
+            Row.style.width = '100%'
+            for (var i = 0; i < mobs.length; i++) {
+                const ThisMob = createElementByInfo(mobs[i].name, mobs[i].rarity, mobs[i].beyond, mobs[i].timestamp)
+                ThisMob.style.width = '24%'
+                Row.appendChild(ThisMob)
+            }
+            Row.style.flexShrink = '0'
+            return Row
+        }
+        function createEmptyHeight(height) {
+            const H = document.createElement('div')
+            H.style.height = height
+            H.style.flexShrink = '0'
+            return H
+        }
+        let Box = document.createElement('div')
+        if (document.getElementById('AllMobsHolder')) {
+            Box = document.getElementById('AllMobsHolder');
+            while(Box.children.length) Box.children[0].remove()
+        }
+        else Box = document.createElement('div')
+        Box.id = 'AllMobsHolder'
+        Box.style = "display: flex; opacity: 1; z-index: 2085; flex-direction: column; overflow-y: scroll; flex-shrink: 0; min-height: 0; align-items: center; width: 500px; height: 575px; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);"
+        const CloseButton = document.createElement('button')
+        CloseButton.style = "opacity: 0.7; background-color:#aaa; font-size: 12px; padding: 2px; width: 70px; height: 40px; flex-shrink: 0;"
+        CloseButton.innerHTML = "Close"
+        CloseButton.addEventListener("click", function () { Box.remove() })
+        let Titles = []
+        for (var i = 0; i < 6; i++) Titles[i] = document.createElement('div')
+        for (var i = 0; i < 6; i++) Titles[i].style = 'font-size: 22px; font-weight: bold; flex-shrink: 0;'
+        for (var i = 0; i < 6; i++) Titles[i].innerHTML = ['Main', 'Green', 'City', 'Island', 'Fairyland', 'Hell'][i]
+        Box.appendChild(createEmptyHeight(20))
+        Box.appendChild(Titles[0])
+        Box.appendChild(createEmptyHeight(20))
+        Box.appendChild(createRows([reqmob['1'], reqmob['2'], reqmob['3']]))
+        Box.appendChild(createEmptyHeight(10))
+        Box.appendChild(createRows([reqmob['4'], reqmob['5'], reqmob['6']]))
+        Box.appendChild(createEmptyHeight(20))
+        Box.appendChild(Titles[1])
+        Box.appendChild(createEmptyHeight(20))
+        Box.appendChild(createRows([reqmob['11'], reqmob['12'], reqmob['13'], reqmob['14']]))
+        Box.appendChild(createEmptyHeight(20))
+        Box.appendChild(Titles[2])
+        Box.appendChild(createEmptyHeight(20))
+        Box.appendChild(createRows([reqmob['21'], reqmob['22'], reqmob['23'], reqmob['24']]))
+        Box.appendChild(createEmptyHeight(20))
+        Box.appendChild(Titles[3])
+        Box.appendChild(createEmptyHeight(20))
+        Box.appendChild(createRows([reqmob['31'], reqmob['32'], reqmob['33'], reqmob['34']]))
+        Box.appendChild(createEmptyHeight(20))
+        Box.appendChild(Titles[4])
+        Box.appendChild(createEmptyHeight(20))
+        Box.appendChild(createRows([reqmob['41'], reqmob['42'], reqmob['43']]))
+        Box.appendChild(createEmptyHeight(20))
+        Box.appendChild(Titles[5])
+        Box.appendChild(createEmptyHeight(20))
+        Box.appendChild(createRows([reqmob['-1'], reqmob['-2']]))
+        Box.appendChild(createEmptyHeight(20))
+        Box.appendChild(CloseButton)
+        Box.appendChild(createEmptyHeight(30))
+        Box.style.backgroundColor = '#FFFFFF'
+        Box.style.borderColor = '#aaa'
+        Box.style.borderWidth = '3px'
+        Box.style.borderRadius = '6px'
+        document.body.appendChild(Box)
+        document.body.style.height = '100%'
+        document.body.style.margin = '0'
+        document.documentElement.style.height = '100%'
+    }
 
     function PFLFcheck(num) {
         if ((typeof num) !== "number" || Number.isInteger(num) == false || num < 0 || isNaN(num)) {
@@ -1378,7 +1526,11 @@
         "frag",
         "endfrag",
         "fw",
-        "re"
+        "re",
+        "sharemob",
+        "shmob",
+        "reqmob",
+        "getmob"
     ];
 
 
@@ -1392,6 +1544,8 @@
         isCommand = newMessageValue.slice(0, 1) === "."
         if (newMessageValue.slice(0, 3) === ".fw") isCommand = false
         if (newMessageValue.slice(0, 3) === ".re") isCommand = false
+        if (newMessageValue === ".sharemob") isCommand = false
+        if (newMessageValue === ".shmob") isCommand = false
 
         function getkthElement(ind) {
             let tmp = document.getElementById("board").childElementCount;
@@ -1463,11 +1617,12 @@
             document.getElementById("message").value = newMessageValue;
             newMessageValue = cmd;
         }
-        
-        if (newMessageValue === ".reqmob") {
+
+        if (newMessageValue === ".reqmob" || newMessageValue === ".getmob") {
             (async () => {
                 const serverData = await getDataFromServer();
-                console.log('mob data:', serverData);
+                reqmob = { ...serverData.messages.pos };
+                renderMobList();
             })();
             newMessageValue = "";
             document.getElementById("message").value = newMessageValue;
@@ -1646,6 +1801,23 @@
                 }
             }
             newMessageValue = tempMessage
+            document.getElementById("message").value = newMessageValue
+        }
+        if (newMessageValue === ".sharemob" || newMessageValue === ".shmob") {
+            const t = shmob;
+            let shrarity = shmob.rarity.slice(0, 1);
+            if (shrarity === "U") shrarity = shmob.rarity.slice(0, 2);
+            let shbyd = (shmob.beyond ? "Byd." : "");
+            newMessageValue = calcPos(shmob.pos) + "." + shbyd + shrarity + "." + shmob.name + "." + shmob.threshold;
+            document.getElementById("message").value = newMessageValue;
+        }
+        if (newMessageValue.slice(0, 9) === ".setting ") {
+            newMessageValue = newMessageValue.slice(10)
+            let set = newMessageValue.split(' ')[0]
+            let val = newMessageValue.split(' ')[2]
+            data_obj.value = [set, eval(val)]
+            console.log(set + " set to " + eval(val))
+            newMessageValue = ""
             document.getElementById("message").value = newMessageValue
         }
         //使用方法：.PFLFstart，可以开启PFLF
@@ -2529,6 +2701,79 @@
         inputField.addEventListener('keydown', handleKeyDown);
         inputField.addEventListener('input', handleInputChange);
     }
+
+    function AutoFight() {
+        if (unsafeWindow.location.pathname.startsWith("/e/mob") === true || unsafeWindow.location.pathname.startsWith("/e/limit") === true || unsafeWindow.location.pathname.startsWith("/e/boss") === true || unsafeWindow.location.pathname.startsWith("/mob") === true || unsafeWindow.location.pathname.startsWith("/limit") === true || unsafeWindow.location.pathname.startsWith("/boss") === true) {
+            if (document.getElementById("autofightbtn") !== null) return;
+            var fightButton = document.getElementById("fightbtn");
+            var onclickAttr = fightButton.getAttribute("onclick");
+            var parentDiv = fightButton.parentNode;
+            var newButton = document.createElement("button");
+            newButton.id = "autofightbtn";
+            newButton.className = "btn btn-primary numchange";
+            newButton.style.backgroundColor = "#be6cde";
+            newButton.innerHTML = "Fight Until Win";
+            newButton.onclick = function () {
+                let keepClicking = true;
+                const fightBtn = document.getElementById("fightbtn");
+                const checkGameStatus = function () {
+                    if (!keepClicking) return;
+                    const ansElement = document.getElementById("ans");
+                    const ansContent = ansElement ? ansElement.textContent || ansElement.innerText || '' : '';
+
+                    if (ansContent.includes("Wait some seconds!") ||
+                        ansContent.includes("Wait a moment!")) {
+                        setTimeout(clickFightButton, 8000);
+                    }
+                    else if (ansContent.includes("The server is having trouble") ||
+                        ansContent.includes("Battle failed!")) {
+                        setTimeout(clickFightButton, 1000);
+                    }
+                    else if (ansContent.includes("Battling") || ansContent.includes("Battling")) {
+                        setTimeout(checkGameStatus, 500);
+                    }
+                    else if (ansContent.includes("Attack successful!") ||
+                        ansContent.includes("You have already defeated this wave of mobs") ||
+                        ansContent.includes("You defeated a mob and get") ||
+                        ansContent.includes("The damage you caused is too little") ||
+                        ansContent.includes("At least 2 stamina is required")) {
+                        keepClicking = false;
+                        newButton.style.backgroundColor = "#be6cde";
+                        newButton.textContent = "Fight Until Win";
+                    }
+                    else {
+                        setTimeout(checkGameStatus, 500);
+                    }
+                };
+
+                const clickFightButton = function () {
+                    if (!keepClicking) return;
+                    fightBtn.click();
+                    setTimeout(checkGameStatus, 500);
+                };
+
+                this.textContent = "Stop Fighting";
+                this.style.backgroundColor = "#ff7979";
+                const originalOnClick = this.onclick;
+                this.onclick = function () {
+                    keepClicking = false;
+                    newButton.style.backgroundColor = "#be6cde";
+                    this.textContent = "Fight Until Win";
+                    this.onclick = originalOnClick;
+                };
+
+                clickFightButton();
+            };
+            parentDiv.appendChild(newButton);
+
+        }
+    }
+    setInterval(function () {
+        if (data_obj.value.fuw) {
+            try { AutoFight() }
+            catch { };
+        }
+    }, 1000);
 
     // VERSION COMPATIBILITY
 
