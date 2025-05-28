@@ -776,6 +776,35 @@
         }
         return "";
     }
+    function DimColorPos(pos) {
+        pos = parseInt(pos, 10);
+        switch (pos) {
+            case 1: return "#deecff";
+            case 2: return "#d7f7ce";
+            case 3: return "#fbe9d7";
+            case 4: return "#bbc2fa";
+            case 5: return "#b7e9ff";
+            case 6: return "linear-gradient(135deg, #d6e1fd, #dbf4ff)";
+            case 11: return "#d2f0e9";
+            case 12: return "#d7fdfe";
+            case 13: return "#daf3d1";
+            case 14: return "linear-gradient(135deg, #cee6f4, #d4fdec)";
+            case 21: return "#ffece0";
+            case 22: return "#d5f5d7";
+            case 23: return "#ffe3f8";
+            case 24: return "linear-gradient(135deg, #ffdddd, #ffe3f2)";
+            case 31: return "#fcefdb";
+            case 32: return "#e9e9e9";
+            case 33: return "#dae8ff";
+            case 34: return "linear-gradient(135deg, #ddf9ff, #ede7ff)";
+            case 41: return "#cef2ea";
+            case 42: return "#fcf1db";
+            case 43: return "#e9daff";
+            case -1: return "#ffccd0";
+            case -2: return "#eecccc";
+        }
+        return "#ffffff";
+    }
     function nextTier(mob, rar, ATK) {
         let DEF = DEFcalc(mob, rar)
         if (rar === "Ultimate") {
@@ -909,31 +938,41 @@
     setInterval(ATKdisplay, 1000)
 
     function renderMobList() {
+        function createEmptyHeight(height) {
+            const H = document.createElement('div')
+            H.style.height = height
+            H.style.flexShrink = '0'
+            return H
+        }
         function createElementByInfo(mob, rarity, beyond, timestamp) {
             if (!mob || !rarity || !timestamp) return document.createElement('div')
             const E = document.createElement('div')
             const Mob = document.createElement('div')
             Mob.innerHTML = mob
             Mob.style.fontSize = '16'
-            Mob.style.fontWeight = '400'
+            Mob.style.fontWeight = '600'
             const Rarity = document.createElement('div')
             Rarity.innerHTML = rarity
             Rarity.style.color = rarityToColor(rarity)
+            Rarity.style.fontWeight = '600'
             if (beyond) Rarity.style.backgroundColor = '#DDA0DD'
             const Timestamp = document.createElement('div')
             let timeLeft = Date.now() / 1000 - timestamp
             Timestamp.innerHTML = Math.abs(Math.floor(timeLeft))
-            Timestamp.style.color = (timeLeft > 0 ? '#ff3f7f' : '#3fff7f')
+            Timestamp.style.color = (timeLeft > 0 ? '#ff3f7f' : '#2faf5f')
             Timestamp.style.fontSize = '12'
+            Timestamp.style.fontWeight = '500'
+            E.appendChild(createEmptyHeight(10))
             E.appendChild(Mob)
             E.appendChild(Rarity)
             E.appendChild(Timestamp)
+            E.appendChild(createEmptyHeight(10))
             E.style.display = 'flex'
             E.style.flexDirection = 'column'
             E.style.alignItems = 'center'
             return E
         }
-        function createRows(mobs) {
+        function createRows(mobs, poses) {
             const Row = document.createElement('div')
             Row.style.display = 'flex'
             Row.style.flexDirection = 'row'
@@ -941,22 +980,19 @@
             Row.style.width = '100%'
             for (var i = 0; i < mobs.length; i++) {
                 const ThisMob = createElementByInfo(mobs[i].name, mobs[i].rarity, mobs[i].beyond, mobs[i].timestamp)
-                ThisMob.style.width = '24%'
+                ThisMob.style.width = (100 / mobs.length) + '%'
+                const col = DimColorPos(poses[i])
+                if (col.length == 7) ThisMob.style.backgroundColor = col
+                else ThisMob.style.background = col
                 Row.appendChild(ThisMob)
             }
             Row.style.flexShrink = '0'
             return Row
         }
-        function createEmptyHeight(height) {
-            const H = document.createElement('div')
-            H.style.height = height
-            H.style.flexShrink = '0'
-            return H
-        }
         let Box = document.createElement('div')
         if (document.getElementById('AllMobsHolder')) {
             Box = document.getElementById('AllMobsHolder');
-            while(Box.children.length) Box.children[0].remove()
+            while (Box.children.length) Box.children[0].remove()
         }
         else Box = document.createElement('div')
         Box.id = 'AllMobsHolder'
@@ -967,35 +1003,29 @@
         CloseButton.addEventListener("click", function () { Box.remove() })
         let Titles = []
         for (var i = 0; i < 6; i++) Titles[i] = document.createElement('div')
-        for (var i = 0; i < 6; i++) Titles[i].style = 'font-size: 22px; font-weight: bold; flex-shrink: 0;'
-        for (var i = 0; i < 6; i++) Titles[i].innerHTML = ['Main', 'Green', 'City', 'Island', 'Fairyland', 'Hell'][i]
-        Box.appendChild(createEmptyHeight(20))
+        for (var i = 0; i < 6; i++) Titles[i].style = 'font-size: 22px; font-weight: bold; flex-shrink: 0; width: 100%; text-align: center;'
+        for (var i = 0; i < 6; i++) {
+            Titles[i].appendChild(createEmptyHeight(10))
+            const Titletext = document.createElement('div')
+            Titletext.innerHTML = ['Main', 'Green', 'City', 'Island', 'Fairyland', 'Hell'][i]
+            Titles[i].appendChild(Titletext)
+            Titles[i].appendChild(createEmptyHeight(10))
+            Titles[i].style.backgroundColor = ['#ececec', '#c0f4e2', '#fdf3dd', '#d4eeff', '#efdefc', '#d5c0c0'][i]
+        }
         Box.appendChild(Titles[0])
-        Box.appendChild(createEmptyHeight(20))
-        Box.appendChild(createRows([reqmob['1'], reqmob['2'], reqmob['3']]))
-        Box.appendChild(createEmptyHeight(10))
-        Box.appendChild(createRows([reqmob['4'], reqmob['5'], reqmob['6']]))
-        Box.appendChild(createEmptyHeight(20))
+        Box.appendChild(createRows([reqmob['1'], reqmob['2'], reqmob['3']], ['1', '2', '3']))
+        Box.appendChild(createRows([reqmob['4'], reqmob['5'], reqmob['6']], ['4', '5', '6']))
         Box.appendChild(Titles[1])
-        Box.appendChild(createEmptyHeight(20))
-        Box.appendChild(createRows([reqmob['11'], reqmob['12'], reqmob['13'], reqmob['14']]))
-        Box.appendChild(createEmptyHeight(20))
+        Box.appendChild(createRows([reqmob['11'], reqmob['12'], reqmob['13'], reqmob['14']], ['11', '12', '13', '14']))
         Box.appendChild(Titles[2])
-        Box.appendChild(createEmptyHeight(20))
-        Box.appendChild(createRows([reqmob['21'], reqmob['22'], reqmob['23'], reqmob['24']]))
-        Box.appendChild(createEmptyHeight(20))
+        Box.appendChild(createRows([reqmob['21'], reqmob['22'], reqmob['23'], reqmob['24']], ['21', '22', '23', '24']))
         Box.appendChild(Titles[3])
-        Box.appendChild(createEmptyHeight(20))
-        Box.appendChild(createRows([reqmob['31'], reqmob['32'], reqmob['33'], reqmob['34']]))
-        Box.appendChild(createEmptyHeight(20))
+        Box.appendChild(createRows([reqmob['31'], reqmob['32'], reqmob['33'], reqmob['34']], ['31', '32', '33', '34']))
         Box.appendChild(Titles[4])
-        Box.appendChild(createEmptyHeight(20))
-        Box.appendChild(createRows([reqmob['41'], reqmob['42'], reqmob['43']]))
-        Box.appendChild(createEmptyHeight(20))
+        Box.appendChild(createRows([reqmob['41'], reqmob['42'], reqmob['43']], ['41', '42', '43']))
         Box.appendChild(Titles[5])
-        Box.appendChild(createEmptyHeight(20))
-        Box.appendChild(createRows([reqmob['-1'], reqmob['-2']]))
-        Box.appendChild(createEmptyHeight(20))
+        Box.appendChild(createRows([reqmob['-1'], reqmob['-2']], ['-1', '-2']))
+        Box.appendChild(createEmptyHeight(10))
         Box.appendChild(CloseButton)
         Box.appendChild(createEmptyHeight(30))
         Box.style.backgroundColor = '#FFFFFF'
@@ -1533,7 +1563,11 @@
         "getmob"
     ];
 
-
+    const updateCountdown_mob = unsafeWindow.updateCountdown_mob
+    unsafeWindow.updateCountdown_mob = function () {
+        try { updateCountdown_mob() }
+        catch { };
+    }
 
     const oldSend = unsafeWindow.send
     unsafeWindow.send = function () {
