@@ -52,7 +52,7 @@
     // 使用方法：
     // let a = data_obj.value.color
     // let a = data_obj.value['color']
-    // data_obj = ['color', '6cf'] //这条直接使用赋值符号！
+    // data_obj.value = ['color', '6cf'] //这条直接使用赋值符号！
     const data_obj = {
         _value: GM_getValue("data_obj", init),
         get value() {
@@ -67,9 +67,10 @@
         },
         delete(key) {
             delete this._value[key];
-            GM_setValue("data_obj", this._value);
+            GM_setValue("data_obj", this._value)
         }
     }
+
     // data_obj.value = ["version", "1.3.1"]
 
     var shmob = {}
@@ -1731,14 +1732,14 @@
             if (newMessageValue.slice(0, 2) === "on") {
                 document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
                     "<div><span style=\"color: #7eef6d\">[SCRIPT] Scroll is on</span></div>"
-                data_obj = ["auto_scroll", true]
+                data_obj.value = ["auto_scroll", true]
                 chatScroll()
             }
             if (newMessageValue.slice(0, 3) === "off") {
                 document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
                     "<div><span style=\"color: #7eef6d\">[SCRIPT] Scroll is off</span></div>"
                 chatScroll()
-                data_obj = ["auto_scroll", true]
+                data_obj.value = ["auto_scroll", false]
             }
             newMessageValue = ""
             document.getElementById("message").value = newMessageValue
@@ -1782,13 +1783,13 @@
                 document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
                     "<div><span style=\"color: #7eef6d\">[SCRIPT] Background turned on, refresh to take effect!</span></div>"
                 chatScroll()
-                data_obj = ['bg_display', true];
+                data_obj.value = ['bg_display', true];
             }
             if (newMessageValue.slice(0, 3) === "off") {
                 document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
                     "<div><span style=\"color: #7eef6d\">[SCRIPT] Background turned off, refresh to take effect!</span></div>"
                 chatScroll()
-                data_obj = ['bg_display', false];
+                data_obj.value = ['bg_display', false];
             }
             newMessageValue = ""
             document.getElementById("message").value = newMessageValue
@@ -1922,7 +1923,6 @@
             let set = newMessageValue.split(' ')[0]
             let val = newMessageValue.split(' ')[2]
             data_obj.value = [set, eval(val)]
-            console.log(set + " set to " + eval(val))
             document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
                 "<div><span style=\"color: #7eef6d\">[SCRIPT] </span><span style=\"color: #ffa090\">" + set + " set to " + eval(val) + "</span></div>"
             newMessageValue = ""
@@ -2557,7 +2557,7 @@
                 document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
                     "<div><span style=\"color: #7eef6d\">[SCRIPT] Craft State: <br></span>" + testStr + "</div>"
                 chatScroll()
-                data_obj = ["auto_scroll", false]
+                data_obj.value = ["auto_scroll", false]
             }
             newMessageValue = ""
             document.getElementById("message").value = newMessageValue
@@ -2677,7 +2677,7 @@
             document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
                 "<div><span style=\"color: #7eef6d\">[SCRIPT] Dicer State: <br></span>" + testStr + "</div>"
             chatScroll()
-            data_obj = ["auto_scroll", false]
+            data_obj.value = ["auto_scroll", false]
             newMessageValue = ""
             document.getElementById("message").value = newMessageValue
         }
@@ -2961,11 +2961,11 @@
 
     // VERSION COMPATIBILITY
 
-    if (false && (data_obj.value.version | "0.0.0") < "1.4.0") {
+    if ((data_obj.value.version | "0.0.0") < "1.4.0") {
         data_obj.value.version = "1.4.0"
 
-        data_obj = ["auto_scroll", auto_scroll.value]
-        data_obj = ["bg_display", bg.value]
+        data_obj.value = ["auto_scroll", auto_scroll.value]
+        data_obj.value = ["bg_display", bg.value]
     }
 
 })()
