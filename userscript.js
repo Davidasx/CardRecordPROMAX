@@ -2813,6 +2813,7 @@
         newMessageValue = newMessageValue.replaceAll("stfu", "s!t!f!u!")
         newMessageValue = newMessageValue.replaceAll("cum", "c!u!m!")
         newMessageValue = newMessageValue.replaceAll("nig", "n!i!g!")
+        newMessageValue = newMessageValue.replaceAll("<", "<  ")
         let findSpaceFromEnd = newMessageValue.length
         while (newMessageValue[findSpaceFromEnd - 1] === ' ' && findSpaceFromEnd > 10) {
             findSpaceFromEnd--
