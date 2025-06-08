@@ -30,6 +30,7 @@
         com_dil: false,
         msg_send: 1,
         fuw: true,
+        permu: false,
     }
 
 
@@ -43,7 +44,7 @@
     pair[31] = "vitae"; pair[32] = "pearl"; pair[33] = "dice"; pair[34] = "atom"; pair[35] = "kite";
     pair[36] = "medal"; pair[37] = "drop"; pair[38] = "cherry"; pair[39] = "lotus"; pair[40] = "wafer";
     pair[41] = "flame"; pair[42] = "pill"; pair[43] = "apple"; pair[44] = "dash"; pair[45] = "celtic";
-    pair[46] = "1UP"; pair[47] = "lazuli"; pair[1001] = "cube";
+    pair[46] = "1UP"; pair[47] = "lazuli"; pair[48] = "coffee"; pair[1001] = "cube";
 
 
     // 不要乱动这里！！！
@@ -69,6 +70,9 @@
         }
     }
     // data_obj.value = ["version", "1.3.1"]
+
+
+    const oldSend = unsafeWindow.send
 
     var shmob = {}
     var reqmob = {}
@@ -170,6 +174,29 @@
     .count { animation: spin 1s linear infinite; }
     `;
     if (data_obj.value.fucked === true) document.head.appendChild(style);
+
+    function replaceLWithI() {
+        const treeWalker = document.createTreeWalker(
+            document.body,
+            NodeFilter.SHOW_TEXT,
+            {
+                acceptNode: function (node) {
+                    return node.nodeValue.includes('l') ?
+                        NodeFilter.FILTER_ACCEPT :
+                        NodeFilter.FILTER_SKIP;
+                }
+            }
+        );
+        const textNodes = [];
+        while (treeWalker.nextNode()) {
+            textNodes.push(treeWalker.currentNode);
+        }
+        if (data_obj.value.fucked) textNodes.forEach(node => {
+            node.nodeValue = node.nodeValue.replace(/l/g, 'I');
+        });
+        setTimeout(replaceLWithI, 1000);
+    }
+    replaceLWithI();
 
 
     function cardToID(card) {
@@ -461,6 +488,12 @@
             return "#43E3D8"
         }
         if (rar === "Ultimate") {
+            return "#F274A9"
+        }
+        if (rar === "Mythic Boss") {
+            return "#43E3D8"
+        }
+        if (rar === "Ultimate Boss") {
             return "#F274A9"
         }
         document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
@@ -938,35 +971,83 @@
     setInterval(ATKdisplay, 1000)
 
     function renderMobList() {
+        function EffectiveMob(timestamp, rarity) {
+            const ts = timestamp * 1000
+            const adjustedTime = new Date(ts - (rarity.trim() == 'Ultimate' ? 21600 : 3600) * 1000);
+            const now = new Date();
+            const yesterdayStart = new Date(now);
+            yesterdayStart.setDate(now.getDate() - 1);
+            yesterdayStart.setHours(0, 0, 0, 0);
+            const yesterdayEnd = new Date(yesterdayStart);
+            yesterdayEnd.setDate(yesterdayStart.getDate() + 1);
+            const minTimeBeforeNow = new Date(now - 5400 * 1000);
+            return !(
+                adjustedTime < yesterdayEnd &&
+                adjustedTime <= minTimeBeforeNow
+            );
+        }
+
         function createEmptyHeight(height) {
             const H = document.createElement('div')
             H.style.height = height
             H.style.flexShrink = '0'
             return H
         }
-        function createElementByInfo(mob, rarity, beyond, timestamp) {
+        function createElementByInfo(mob, rarity, beyond, timestamp, th, pos) {
             if (!mob || !rarity || !timestamp) return document.createElement('div')
+            let timeLeft = Date.now() / 1000 - timestamp
             const E = document.createElement('div')
             const Mob = document.createElement('div')
             Mob.innerHTML = mob
+            if (timeLeft > 0) Mob.innerHTML = '<s> ' + mob + ' </s>'
+            if (timeLeft > 0) Mob.style.color = '#444'
             Mob.style.fontSize = '16'
             Mob.style.fontWeight = '600'
+            Mob.style.textAlign = 'center'
             const Rarity = document.createElement('div')
             Rarity.innerHTML = rarity
             Rarity.style.color = rarityToColor(rarity)
+            let rarity_innerhtml = rarity
+            if (beyond) rarity_innerhtml = '<span style="color: #dda0dd;">↑</span> ' + rarity + ' <span style="color: #dda0dd;">↑</span> '
             Rarity.style.fontWeight = '600'
-            if (beyond) Rarity.style.backgroundColor = '#DDA0DD'
+            Rarity.innerHTML = rarity_innerhtml
             const Timestamp = document.createElement('div')
-            let timeLeft = Date.now() / 1000 - timestamp
             Timestamp.innerHTML = Math.abs(Math.floor(timeLeft))
             Timestamp.style.color = (timeLeft > 0 ? '#ff3f7f' : '#2faf5f')
             Timestamp.style.fontSize = '12'
             Timestamp.style.fontWeight = '500'
-            E.appendChild(createEmptyHeight(10))
+            const Th = document.createElement('div')
+            Th.innerHTML = th
+            Th.style.fontSize = '12'
+            Th.style.fontWeight = '500'
+            const R = document.createElement('div')
+            R.innerHTML = Timestamp.outerHTML + '<div style="width: 10px;"></div>' + Th.outerHTML
+            R.style = 'display: flex; flex-direction: row; width: 100%; justify-content: center;'
+            const ShareBox = document.createElement('div')
+            ShareBox.style.display = 'flex'
+            ShareBox.style.flexDirection = 'row-reverse'
+            ShareBox.style.width = '100%'
+            const Share = document.createElement('div')
+            Share.style.height = '10px'
+            Share.style.margin = '5px'
+            Share.style.fontSize = '8px'
+            Share.style.textAlign = 'center'
+            Share.innerHTML = ' Share '
+            if (timeLeft > 0) Share.innerHTML = '<s> Share </s>'
+            ShareBox.appendChild(Share)
+            if (timeLeft < 0) Share.addEventListener('click', () => {
+                let shrarity = rarity.slice(0, 1);
+                if (shrarity === "U") shrarity = rarity.slice(0, 2);
+                let shbyd = (beyond ? "Byd." : "");
+                let newMessageValue = calcPos(pos) + "." + shbyd + shrarity + "." + mob + "." + th;
+                document.getElementById("message").value = newMessageValue;
+                oldSend();
+            })
+            E.appendChild(ShareBox)
             E.appendChild(Mob)
             E.appendChild(Rarity)
-            E.appendChild(Timestamp)
-            E.appendChild(createEmptyHeight(10))
+            E.appendChild(R)
+            E.appendChild(createEmptyHeight(20))
             E.style.display = 'flex'
             E.style.flexDirection = 'column'
             E.style.alignItems = 'center'
@@ -979,11 +1060,15 @@
             Row.style.justifyContent = 'center'
             Row.style.width = '100%'
             for (var i = 0; i < mobs.length; i++) {
-                const ThisMob = createElementByInfo(mobs[i].name, mobs[i].rarity, mobs[i].beyond, mobs[i].timestamp)
+                const ThisMob = createElementByInfo(mobs[i].name, mobs[i].rarity, mobs[i].beyond, mobs[i].timestamp, mobs[i].threshold, poses[i])
                 ThisMob.style.width = (100 / mobs.length) + '%'
                 const col = DimColorPos(poses[i])
                 if (col.length == 7) ThisMob.style.backgroundColor = col
-                else ThisMob.style.background = col
+                else {
+                    const isEffective = EffectiveMob(mobs[i].timestamp, mobs[i].rarity)
+                    if (isEffective || poses[i] === '6') ThisMob.style.background = col
+                    else ThisMob.style.backgroundColor = '#ccc'
+                }
                 Row.appendChild(ThisMob)
             }
             Row.style.flexShrink = '0'
@@ -1560,7 +1645,9 @@
         "sharemob",
         "shmob",
         "reqmob",
-        "getmob"
+        "getmob",
+        "logout",
+        "no"
     ];
 
     const updateCountdown_mob = unsafeWindow.updateCountdown_mob
@@ -1569,17 +1656,41 @@
         catch { };
     }
 
-    const oldSend = unsafeWindow.send
     unsafeWindow.send = function () {
         const messageValue = document.getElementById("message").value
         let newMessageValue = messageValue
 
-        let isCommand = false
+        const isPermutation = (a, b) => {
+            if (a.length !== b.length) return false;
+            const aSorted = [...a.toLowerCase()].sort().join('');
+            const bSorted = [...b.toLowerCase()].sort().join('');
+            return aSorted === bSorted;
+        };
+
+        let ActualCommand = newMessageValue.split(' ')[0].slice(1)
+        let original = ActualCommand
+        const permutations = CommandList.filter(str => isPermutation(ActualCommand, str));
+        if (permutations.length > 0 && data_obj.value.permu) {
+            ActualCommand = permutations[0]
+            newMessageValue = '.'.concat(ActualCommand.concat(newMessageValue.slice(ActualCommand.length + 1)))
+            document.getElementById("message").value = newMessageValue
+            console.log(original + " Command permutated to " + newMessageValue)
+        }
+
+        let isCommand = false // if isCommand is true, send directly to chat
         isCommand = newMessageValue.slice(0, 1) === "."
         if (newMessageValue.slice(0, 3) === ".fw") isCommand = false
         if (newMessageValue.slice(0, 3) === ".re") isCommand = false
         if (newMessageValue === ".sharemob") isCommand = false
         if (newMessageValue === ".shmob") isCommand = false
+        if (newMessageValue.slice(0, 6) === ".share") {
+            newMessageValue = "/".concat(newMessageValue.slice(1))
+            document.getElementById("message").value = newMessageValue
+        }
+        if (newMessageValue.slice(0, 5) === ".rand") {
+            newMessageValue = "/".concat(newMessageValue.slice(1))
+            document.getElementById("message").value = newMessageValue
+        }
 
         function getkthElement(ind) {
             let tmp = document.getElementById("board").childElementCount;
@@ -1652,6 +1763,17 @@
             newMessageValue = cmd;
         }
 
+        if (newMessageValue.slice(0, 4) === ".no ") {
+            let msg = newMessageValue.slice(5);
+            msg = msg.toLowerCase().trim();
+            let n = -1;
+            let i = 0;
+            for (; i < 1005; i++) if (pair[i] === msg) n = i
+            newlog(n)
+            document.getElementById("message").value = "";
+            newMessageValue = "";
+        }
+
         if (newMessageValue === ".reqmob" || newMessageValue === ".getmob") {
             (async () => {
                 const serverData = await getDataFromServer();
@@ -1661,6 +1783,14 @@
             newMessageValue = "";
             document.getElementById("message").value = newMessageValue;
         }
+
+        if (newMessageValue === ".logout") {
+            unsafeWindow.logout();
+            newMessageValue = "";
+            document.getElementById("message").value = newMessageValue;
+        }
+
+        if (newMessageValue === ".debug") console.log(data_obj)
 
 
         //使用方法：.scroll on或者.scroll off，开启或关闭聊天室自动滚动
@@ -1757,7 +1887,7 @@
             helpText += "<div><span style=\"color:rgb(38, 178, 221)\">.setmode [card/all] [1-7/all] true/false：设定是否合成特定稀有度的特定卡片（默认不合成Dice，Epic及以上Flame和所有Legendary及以上卡片）</span></div>"
             helpText += "<div><span style=\"color:rgb(38, 178, 221)\">.getmode [card]：查看卡片合成设定模式</span></div>"
             helpText += "<div><span style=\"color:rgb(38, 178, 221)\">.chat on/off：断开/连接聊天室</span></div>"
-            helpText += "<div><span style=\"color:rgb(38, 178, 221)\">.reqmob：查询各区域怪物情况</span></div>"
+            helpText += "<div><span style=\"color:rgb(38, 178, 221)\">.reqmob：查询各区域怪物情况（不一定准确）</span></div>"
             helpText += "<div><span style=\"color:rgb(38, 178, 221)\">.sharemob/.shmob：分享当前区域怪物（发送类似M4.E.Mojo Slime.2的消息）</span></div>"
             helpText += "<div><span style=\"color:rgb(221, 218, 38)\">配置类：</span></div>"
             helpText += "<div><span style=\"color:rgb(221, 218, 38)\">.setting [key] [value]：直接修改设置key为value</span></div>"
@@ -2417,7 +2547,7 @@
                 document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
                     "<div><span style=\"color: #7eef6d\">[SCRIPT] Craft State: <br></span>" + testStr + "</div>"
                 chatScroll()
-                data_obj = ["auto_scroll", false]
+                data_obj.value = ["auto_scroll", false]
             }
             newMessageValue = ""
             document.getElementById("message").value = newMessageValue
