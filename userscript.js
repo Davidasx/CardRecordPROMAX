@@ -33,6 +33,8 @@
         permu: false,
     }
 
+    const initBlockList = {}
+
 
     const pair = new Array(1005).fill("")
     pair[1] = "exp"; pair[2] = "coin"; pair[3] = "leaf"; pair[4] = "gold"; pair[5] = "void";
@@ -51,7 +53,7 @@
     // 使用方法：
     // let a = data_obj.value.color
     // let a = data_obj.value['color']
-    // data_obj = ['color', '6cf'] //这条直接使用赋值符号！
+    // data_obj.value = ['color', '6cf'] //这条直接使用赋值符号！
     const data_obj = {
         _value: GM_getValue("data_obj", init),
         get value() {
@@ -66,9 +68,10 @@
         },
         delete(key) {
             delete this._value[key];
-            GM_setValue("data_obj", this._value);
+            GM_setValue("data_obj", this._value)
         }
     }
+
     // data_obj.value = ["version", "1.3.1"]
 
 
@@ -1647,8 +1650,68 @@
         "reqmob",
         "getmob",
         "logout",
-        "no"
+        "no",
+        "block",
+        "unblock",
+        "showblock"
     ];
+
+
+    const blockList = {
+        _value: GM_getValue("blockList", initBlockList),
+        get value() {
+            return this._value
+        },
+        set value(newVal) {
+            if (!Array.isArray(newVal) || newVal.length !== 2) {
+                throw new Error("Expected [key, value] array");
+            }
+            this._value[newVal[0]] = newVal[1]
+            GM_setValue("blockList", this._value)
+        },
+        delete(key) {
+            delete this._value[key];
+            GM_setValue("blockList", this._value);
+        },
+        add(username) {
+            this._value[username] = true;
+            GM_setValue("blockList", this._value);
+        },
+        remove(username) {
+            delete this._value[username];
+            GM_setValue("blockList", this._value);
+        },
+        contains(username) {
+            return !!this._value[username];
+        },
+        list() {
+            return Object.keys(this._value);
+        }
+    }
+
+    function blockMessages() {
+        const boardDiv = document.getElementById("board");
+        if (boardDiv) {
+            const allDivs = boardDiv.querySelectorAll("div");
+            allDivs.forEach(div => {
+                const fontElement = div.querySelector('font[color="#444"] b');
+                if (fontElement) {
+                    const username = fontElement.textContent.trim();
+                    if (blockList.contains(username)) {
+                        // 隐藏消息而不是删除
+                        div.style.display = 'none';
+                        div.setAttribute('data-blocked-user', username);
+                    } else if (div.hasAttribute('data-blocked-user')) {
+                        // 如果用户不在屏蔽列表但消息被隐藏，恢复显示
+                        div.style.display = '';
+                        div.removeAttribute('data-blocked-user');
+                    }
+                }
+            });
+        }
+    }
+
+    setInterval(blockMessages, 1000)
 
     const updateCountdown_mob = unsafeWindow.updateCountdown_mob
     unsafeWindow.updateCountdown_mob = function () {
@@ -1799,14 +1862,14 @@
             if (newMessageValue.slice(0, 2) === "on") {
                 document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
                     "<div><span style=\"color: #7eef6d\">[SCRIPT] Scroll is on</span></div>"
-                data_obj = ["auto_scroll", true]
+                data_obj.value = ["auto_scroll", true]
                 chatScroll()
             }
             if (newMessageValue.slice(0, 3) === "off") {
                 document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
                     "<div><span style=\"color: #7eef6d\">[SCRIPT] Scroll is off</span></div>"
                 chatScroll()
-                data_obj = ["auto_scroll", true]
+                data_obj.value = ["auto_scroll", false]
             }
             newMessageValue = ""
             document.getElementById("message").value = newMessageValue
@@ -1850,13 +1913,13 @@
                 document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
                     "<div><span style=\"color: #7eef6d\">[SCRIPT] Background turned on, refresh to take effect!</span></div>"
                 chatScroll()
-                data_obj = ['bg_display', true];
+                data_obj.value = ['bg_display', true];
             }
             if (newMessageValue.slice(0, 3) === "off") {
                 document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
                     "<div><span style=\"color: #7eef6d\">[SCRIPT] Background turned off, refresh to take effect!</span></div>"
                 chatScroll()
-                data_obj = ['bg_display', false];
+                data_obj.value = ['bg_display', false];
             }
             newMessageValue = ""
             document.getElementById("message").value = newMessageValue
@@ -1889,6 +1952,9 @@
             helpText += "<div><span style=\"color:rgb(38, 178, 221)\">.chat on/off：断开/连接聊天室</span></div>"
             helpText += "<div><span style=\"color:rgb(38, 178, 221)\">.reqmob：查询各区域怪物情况（不一定准确）</span></div>"
             helpText += "<div><span style=\"color:rgb(38, 178, 221)\">.sharemob/.shmob：分享当前区域怪物（发送类似M4.E.Mojo Slime.2的消息）</span></div>"
+            helpText += "<div><span style=\"color:rgb(38, 178, 221)\">.block [name]：屏蔽某个用户的消息</span></div>"
+            helpText += "<div><span style=\"color:rgb(38, 178, 221)\">.unblock [name]/name：取消屏蔽某个用户或所有被屏蔽用户的消息</span></div>"
+            helpText += "<div><span style=\"color:rgb(38, 178, 221)\">.showblock：显示屏蔽列表</span></div>"
             helpText += "<div><span style=\"color:rgb(221, 218, 38)\">配置类：</span></div>"
             helpText += "<div><span style=\"color:rgb(221, 218, 38)\">.setting [key] [value]：直接修改设置key为value</span></div>"
             helpText += "<div><span style=\"color:rgb(221, 218, 38)\">可用key：</span></div>"
@@ -1987,7 +2053,6 @@
             let set = newMessageValue.split(' ')[0]
             let val = newMessageValue.split(' ')[2]
             data_obj.value = [set, eval(val)]
-            console.log(set + " set to " + eval(val))
             document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
                 "<div><span style=\"color: #7eef6d\">[SCRIPT] </span><span style=\"color: #ffa090\">" + set + " set to " + eval(val) + "</span></div>"
             newMessageValue = ""
@@ -2476,6 +2541,81 @@
             newMessageValue = ""
             document.getElementById("message").value = newMessageValue
         }
+        //使用方法：.block [name]，屏蔽某人发的消息
+        if (newMessageValue.slice(0, 7) === ".block ") {
+            newMessageValue = newMessageValue.slice(8)
+            if (newMessageValue.length === 0) {
+                document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
+                    "<div><span style=\"color: #7eef6d\">[SCRIPT] </span><span style=\"color: #7f0000\">Error: Invalid parameter!</span></div>"
+                chatScroll()
+            }
+            else {
+                blockList.add(newMessageValue)
+                document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
+                    "<div><span style=\"color: #7eef6d\">[SCRIPT] </span><span style=\"color: #ffa090\">Blocked " + newMessageValue + "</span></div>"
+                chatScroll()
+            }
+            newMessageValue = ""
+            document.getElementById("message").value = newMessageValue
+        }
+        //使用方法：.unblock [name]/all，解除屏蔽某人或所有被屏蔽用户发的消息
+        if (newMessageValue.slice(0, 9) === ".unblock ") {
+            newMessageValue = newMessageValue.slice(10)
+            if (newMessageValue.length === 0) {
+                document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
+                    "<div><span style=\"color: #7eef6d\">[SCRIPT] </span><span style=\"color: #7f0000\">Error: Invalid parameter!</span></div>"
+                chatScroll()
+            }
+            else {
+                if (newMessageValue.toLowerCase() === "all") {
+                    const blockedUsers = blockList.list()
+                    if (blockedUsers.length === 0) {
+                        document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
+                            "<div><span style=\"color: #7eef6d\">[SCRIPT] </span><span style=\"color: #ffa090\">You have no blocked users</span></div>"
+                        chatScroll()
+                    } else {
+                        for (let i = 0; i < blockedUsers.length; i++) {
+                            blockList.remove(blockedUsers[i])
+                            document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
+                                "<div><span style=\"color: #7eef6d\">[SCRIPT] </span><span style=\"color: #ffa090\">Unblocked " + blockedUsers[i] + "</span></div>"
+                        }
+                        chatScroll()
+                    }
+                }
+                else if (blockList.contains(newMessageValue)) {
+                    blockList.remove(newMessageValue)
+                    document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
+                        "<div><span style=\"color: #7eef6d\">[SCRIPT] </span><span style=\"color: #ffa090\">Unblocked " + newMessageValue + "</span></div>"
+                    chatScroll()
+                }
+                else {
+                    document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
+                        "<div><span style=\"color: #7eef6d\">[SCRIPT] </span><span style=\"color: #7f0000\">Error: User not blocked!</span></div>"
+                    chatScroll()
+                }
+            }
+            newMessageValue = ""
+            document.getElementById("message").value = newMessageValue
+        }
+        //使用方法：.showblock，查看屏蔽列表
+        if (newMessageValue.slice(0, 10) === ".showblock") {
+            if (blockList.list().length === 0) {
+                document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
+                    "<div><span style=\"color: #7eef6d\">[SCRIPT] </span><span style=\"color: #ffa090\">You have no blocked users</span></div>"
+                chatScroll()
+            } else {
+                document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
+                    "<div><span style=\"color: #7eef6d\">[SCRIPT] </span><span style=\"color: #ffa090\">Blocked users:</span></div>"
+                const blockedUsers = blockList.list()
+                for (let i = 0; i < blockedUsers.length; i++) {
+                    document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
+                        "<div><span style=\"color: #ffa090\">" + blockedUsers[i] + "</span></div>"
+                }
+                chatScroll()
+            }
+            newMessageValue = ""
+            document.getElementById("message").value = newMessageValue
+        }
         //使用方法：.craft，根据设定的规则自动合成
         if (newMessageValue === ".craft") {
             allCraft()
@@ -2667,7 +2807,7 @@
             document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
                 "<div><span style=\"color: #7eef6d\">[SCRIPT] Dicer State: <br></span>" + testStr + "</div>"
             chatScroll()
-            data_obj = ["auto_scroll", false]
+            data_obj.value = ["auto_scroll", false]
             newMessageValue = ""
             document.getElementById("message").value = newMessageValue
         }
@@ -2803,6 +2943,7 @@
         newMessageValue = newMessageValue.replaceAll("stfu", "s!t!f!u!")
         newMessageValue = newMessageValue.replaceAll("cum", "c!u!m!")
         newMessageValue = newMessageValue.replaceAll("nig", "n!i!g!")
+        newMessageValue = newMessageValue.replaceAll("<", "<  ")
         let findSpaceFromEnd = newMessageValue.length
         while (newMessageValue[findSpaceFromEnd - 1] === ' ' && findSpaceFromEnd > 10) {
             findSpaceFromEnd--
@@ -2951,11 +3092,11 @@
 
     // VERSION COMPATIBILITY
 
-    if (false && (data_obj.value.version | "0.0.0") < "1.4.0") {
+    if ((data_obj.value.version | "0.0.0") < "1.4.0") {
         data_obj.value.version = "1.4.0"
 
-        data_obj = ["auto_scroll", auto_scroll.value]
-        data_obj = ["bg_display", bg.value]
+        data_obj.value = ["auto_scroll", auto_scroll.value]
+        data_obj.value = ["bg_display", bg.value]
     }
 
 })()
