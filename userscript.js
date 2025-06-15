@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         CardRecordPROMAX
 // @namespace    http://tampermonkey.net/
-// @version      1.5.0
+// @version      1.6.0
 // @description  not an AD reference
 // @author       Several People
 // @match        *://ruarua.ru/*
@@ -63,7 +63,8 @@
             if (!Array.isArray(newVal) || newVal.length !== 2) {
                 throw new Error("Expected [key, value] array");
             }
-            this._value[newVal[0]] = newVal[1]
+            if (typeof newVal[1] === 'object') this._value[newVal[0]] = {...newVal[1]}
+            else this._value[newVal[0]] = newVal[1]
             GM_setValue("data_obj", this._value)
         },
         delete(key) {
@@ -950,7 +951,7 @@
                         };
                         // Find the first element with innerText "Threshould"
                         const thresholdElement = Array.from(document.querySelectorAll('*')).find(el =>
-                            el.innerText.trim() === "Threshold" || el.innerText.trim() === "Now Health"
+                            el.innerText.trim() === "Threshold" || el.innerText.trim() === "Now Health" || el.innerText.trim() === "Remaining"
                         );
                         const nextElement = thresholdElement?.nextElementSibling;
                         const beyond = document.querySelectorAll('img[src$="beyond.png"]').length;
@@ -2051,7 +2052,9 @@
         if (newMessageValue.slice(0, 9) === ".setting ") {
             newMessageValue = newMessageValue.slice(10)
             let set = newMessageValue.split(' ')[0]
-            let val = newMessageValue.split(' ')[2]
+            let val = ''
+            for (var i = 2; i < newMessageValue.split(' ').length; i++) val = val.concat(newMessageValue.split(' ')[i])
+            if (val.startsWith('{')) val = 'JSON.parse(`' + val + '`)'
             data_obj.value = [set, eval(val)]
             document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
                 "<div><span style=\"color: #7eef6d\">[SCRIPT] </span><span style=\"color: #ffa090\">" + set + " set to " + eval(val) + "</span></div>"
@@ -2971,10 +2974,39 @@
         document.getElementById("message").value = ""
     }
 
+    let infree = (unsafeWindow.location.pathname.startsWith("/e/m") === true || unsafeWindow.location.pathname.startsWith("/m") === true) && unsafeWindow.location.pathname.startsWith("/e/mob") === false && unsafeWindow.location.pathname.startsWith("/mob") === false
+    if (data_obj.value.freescroll === true && infree)
+        document.getElementById('room').style.overflow = 'scroll';
+
+    if (infree && data_obj.value.freelisten.open === true) socket.addEventListener('open', function (event) {
+        console.log('WebSocket is open now.');
+    });
+    if (infree && data_obj.value.freelisten.message === true) socket.addEventListener('message', function (event) {
+        console.log('Message from server ', event.data.text());
+    });
+    let oldfreesend = null
+    if (infree) oldfreesend = socket.send
+    if (infree && data_obj.value.freelisten.send === true) socket.send = function (data) {
+        oldfreesend.call(this, data);
+        console.log('Message send ', data)
+    }
+    if (infree && data_obj.value.freelisten.error === true) socket.addEventListener('error', function (event) {
+        console.error('WebSocket error observed:', event);
+    });
+    if (infree && data_obj.value.freelisten.close === true) socket.addEventListener('close', function (event) {
+        console.log('WebSocket is closed now.');
+    });
+
     /* --------- ADDED BY ARCANAEDEN --------- */
 
     let messageHistory = [];
-    let currentIndex = -1;
+    messageHistory = JSON.parse(data_obj.value.messageHistory || '[]') || [];
+    const olderSend = unsafeWindow.send;
+    unsafeWindow.send = () => {
+        olderSend();
+        data_obj.value = ['messageHistory', JSON.stringify(messageHistory)];
+    }
+    let currentIndex = messageHistory.length || -1;
     function saveMessage(message) {
         if (message) {
             if (messageHistory[messageHistory.length - 1] !== message) messageHistory.push(message);
