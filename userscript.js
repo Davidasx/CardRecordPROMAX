@@ -63,7 +63,7 @@
             if (!Array.isArray(newVal) || newVal.length !== 2) {
                 throw new Error("Expected [key, value] array");
             }
-            if (typeof newVal[1] === 'object') this._value[newVal[0]] = {...newVal[1]}
+            if (typeof newVal[1] === 'object') this._value[newVal[0]] = { ...newVal[1] }
             else this._value[newVal[0]] = newVal[1]
             GM_setValue("data_obj", this._value)
         },
@@ -1961,6 +1961,8 @@
             helpText += "<div><span style=\"color:rgb(221, 218, 38)\">可用key：</span></div>"
             helpText += "<div><span style=\"color:rgb(221, 218, 38)\">         fuw：是否增加打怪直到成功按钮（true/false）</span></div>"
             helpText += "<div><span style=\"color:rgb(221, 218, 38)\">         auto_scroll：聊天室自动滚动（true/false）</span></div>"
+            helpText += "<div><span style=\"color:rgb(221, 218, 38)\">         bg_display：是否展示背景图（true/false）</span></div>"
+            helpText += "<div><span style=\"color:rgb(221, 218, 38)\">         freescroll：优化Free视野（true/false）</span></div>"
             helpText += "<div><span style=\"color:rgb(148, 38, 221)\">整活类：</span></div>"
             helpText += "<div><span style=\"color:rgb(148, 38, 221)\">.rep on/off：替换此后输入的一些文本（默认off）</span></div>"
             helpText += "<div><span style=\"color:rgb(148, 38, 221)\">.dil on/off：膨胀此后输入的文本（默认off）</span></div>"
@@ -2060,6 +2062,7 @@
                 "<div><span style=\"color: #7eef6d\">[SCRIPT] </span><span style=\"color: #ffa090\">" + set + " set to " + eval(val) + "</span></div>"
             newMessageValue = ""
             document.getElementById("message").value = newMessageValue
+            chatScroll()
         }
         //使用方法：.PFLFstart，可以开启PFLF
         if (newMessageValue === ".PFLFstart") {
