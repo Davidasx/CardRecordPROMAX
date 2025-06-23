@@ -974,6 +974,42 @@
     }
     setInterval(ATKdisplay, 1000)
 
+    function BossLootDisplay() {
+        function createEmptyHeight(height) {
+            const H = document.createElement('div')
+            H.style.height = height
+            H.style.flexShrink = '0'
+            return H
+        }
+        try {
+            if (unsafeWindow.location.pathname.startsWith("/e/boss") === false && unsafeWindow.location.pathname.startsWith("/boss") === false) return;
+            const anchor = Array.from(document.querySelectorAll('*')).find(el =>
+                el.innerText.trim() === "After Boss dead, the ranking loots will be available"
+            );
+            const bosstext = anchor.parentElement;
+            const playerlistwrapper = bosstext.nextElementSibling;
+            const playerlist = playerlistwrapper.firstElementChild;
+            const length = playerlist ? playerlist.childElementCount : 0;
+            const pplcontainer = document.createElement('div')
+
+            const ppldisplay = document.createElement('div')
+            ppldisplay.id = "pplnumber"
+            ppldisplay.innerHTML = "There are currently " + length + " players on the ranks"
+
+            pplcontainer.appendChild(createEmptyHeight('5px'))
+            pplcontainer.appendChild(ppldisplay)
+            pplcontainer.appendChild(createEmptyHeight('5px'))
+            pplcontainer.style.margin = '5px'
+            pplcontainer.style.borderTop = '1px dashed grey'
+            pplcontainer.style.borderBottom = '1px dashed grey'
+            pplcontainer.style.display = 'flex'
+            pplcontainer.style.flexDirection = 'column'
+            pplcontainer.style.alignItems = 'center'
+            if (document.getElementById('pplnumber') === null) bosstext.appendChild(pplcontainer)
+        } catch { }
+    }
+    setInterval(BossLootDisplay, 1000)
+
     function renderMobList() {
         function EffectiveMob(timestamp, rarity) {
             const ts = timestamp * 1000
@@ -2977,9 +3013,21 @@
         document.getElementById("message").value = ""
     }
 
+    document.body.style.userSelect = "auto";
+
     let infree = (unsafeWindow.location.pathname.startsWith("/e/m") === true || unsafeWindow.location.pathname.startsWith("/m") === true) && unsafeWindow.location.pathname.startsWith("/e/mob") === false && unsafeWindow.location.pathname.startsWith("/mob") === false
     if (data_obj.value.freescroll === true && infree)
         document.getElementById('room').style.overflow = 'scroll';
+
+    // if (infree) {
+    //     const oldMove = unsafeWindow.startMove
+    //     console.log(unsafeWindow.startMove)
+    //     unsafeWindow.startMove = (dir) => {
+    //         oldMove.call(this, dir)
+    //         setTimeout(oldMove.call(this, dir), 100)
+    //         // console.log('qwq')
+    //     }
+    // }
 
     if (infree && data_obj.value.freelisten.open === true) socket.addEventListener('open', function (event) {
         console.log('WebSocket is open now.');
