@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         CardRecordPROMAX
 // @namespace    http://tampermonkey.net/
-// @version      1.6.0
+// @version      1.4.0
 // @description  not an AD reference
 // @author       Several People
 // @match        *://ruarua.ru/*
@@ -16,7 +16,7 @@
     const init = {
         version: "0.0.0",
         color: "7c78cc",
-        auto_scroll: true,
+        auto_scroll: false,
         bg_display: false,
         PFLFstart: false,
         PFLFturn: 0,
@@ -30,10 +30,7 @@
         com_dil: false,
         msg_send: 1,
         fuw: true,
-        permu: false,
     }
-
-    const initBlockList = {}
 
 
     const pair = new Array(1005).fill("")
@@ -48,14 +45,53 @@
     pair[41] = "flame"; pair[42] = "pill"; pair[43] = "apple"; pair[44] = "dash"; pair[45] = "celtic";
     pair[46] = "1UP"; pair[47] = "lazuli"; pair[48] = "coffee"; pair[1001] = "cube";
 
+    /**
+     * 新增函数：从 cookie 中获取唯一的客户端 ID
+     * @returns {string} - 返回从 _ga cookie 中提取的唯一ID，如果找不到则返回 'default_user'
+     */
+    function getGaCookieClientId() {
+        const cookieString = document.cookie;
+        const gaCookie = cookieString.split('; ').find(row => row.startsWith('_ga='));
+        if (gaCookie) {
+            // _ga 的值通常是 'GA1.2.XXXX.YYYY' 的格式
+            // 其中 XXXX.YYYY 是我们需要的唯一客户端ID
+            const parts = gaCookie.split('=')[1].split('.');
+            if (parts.length === 4) {
+                return `${parts[2]}.${parts[3]}`;
+            }
+        }
+        return 'default_user'; // 如果没有找到_ga cookie，提供一个默认值
+    }
+
+    // 获取当前用户的唯一标识
+    const accountId = getGaCookieClientId();
+
 
     // 不要乱动这里！！！
     // 使用方法：
     // let a = data_obj.value.color
     // let a = data_obj.value['color']
-    // data_obj.value = ['color', '6cf'] //这条直接使用赋值符号！
+    // data_obj = ['color', '6cf'] //这条直接使用赋值符号！
+    // const data_obj = {
+    //     _value: GM_getValue("data_obj", init),
+    //     get value() {
+    //         return { ...this._value }
+    //     },
+    //     set value(newVal) {
+    //         if (!Array.isArray(newVal) || newVal.length !== 2) {
+    //             throw new Error("Expected [key, value] array");
+    //         }
+    //         this._value[newVal[0]] = newVal[1]
+    //         GM_setValue("data_obj", this._value)
+    //     },
+    //     delete(key) {
+    //         delete this._value[key];
+    //         GM_setValue("data_obj", this._value);
+    //     }
+    // }
+    // data_obj.value = ["version", "1.3.1"]
     const data_obj = {
-        _value: GM_getValue("data_obj", init),
+        _value: GM_getValue(`data_obj_${accountId}`, init), // 在键名中加入了账号ID
         get value() {
             return { ...this._value }
         },
@@ -63,26 +99,20 @@
             if (!Array.isArray(newVal) || newVal.length !== 2) {
                 throw new Error("Expected [key, value] array");
             }
-            if (typeof newVal[1] === 'object') this._value[newVal[0]] = { ...newVal[1] }
-            else this._value[newVal[0]] = newVal[1]
-            GM_setValue("data_obj", this._value)
+            this._value[newVal[0]] = newVal[1]
+            GM_setValue(`data_obj_${accountId}`, this._value) // 在键名中加入了账号ID
         },
         delete(key) {
             delete this._value[key];
-            GM_setValue("data_obj", this._value)
+            GM_setValue(`data_obj_${accountId}`, this._value); // 在键名中加入了账号ID
         }
     }
-
-    // data_obj.value = ["version", "1.3.1"]
-
-
-    const oldSend = unsafeWindow.send
 
     var shmob = {}
     var reqmob = {}
 
     // 配置项： 'angelslime' | 'none' | 'random' | 'rickroll'
-    const animationType = GM_getValue('animationType', 'angelslime');
+    const animationType = GM_getValue(`animationType`, 'angelslime');
     const angelslime = 'https://ruarua.ru/api/pic/gif/loading1.webp';
     const rickroll = "https://static.davidx.top/rickroll.gif";
     new Image().src = rickroll
@@ -179,28 +209,17 @@
     `;
     if (data_obj.value.fucked === true) document.head.appendChild(style);
 
-    function replaceLWithI() {
-        const treeWalker = document.createTreeWalker(
-            document.body,
-            NodeFilter.SHOW_TEXT,
-            {
-                acceptNode: function (node) {
-                    return node.nodeValue.includes('l') ?
-                        NodeFilter.FILTER_ACCEPT :
-                        NodeFilter.FILTER_SKIP;
-                }
-            }
-        );
-        const textNodes = [];
-        while (treeWalker.nextNode()) {
-            textNodes.push(treeWalker.currentNode);
+    // ADDED: 注入CSS以强制允许文本选择
+    const enableTextSelectionStyle = document.createElement('style');
+    enableTextSelectionStyle.textContent = `
+        * {
+            -webkit-user-select: text !important;
+            -moz-user-select: text !important;
+            -ms-user-select: text !important;
+            user-select: text !important;
         }
-        if (data_obj.value.fucked) textNodes.forEach(node => {
-            node.nodeValue = node.nodeValue.replace(/l/g, 'I');
-        });
-        setTimeout(replaceLWithI, 1000);
-    }
-    replaceLWithI();
+    `;
+    document.head.appendChild(enableTextSelectionStyle);
 
 
     function cardToID(card) {
@@ -226,22 +245,1180 @@
         return Math.floor(num) + "." + (Math.floor((num - Math.floor(num)) * 10))
     }
 
+    // -------- 4区按钮功能 开始 --------
+
+    // 从 area.js 移植的函数，用于生成按钮
+    const getBfcon = lv => `Need Lv${lv}`;
+
+    function getButtonConfig(answer) {
+        const configs = {
+            Green: { pos: 14, text: 'Waterfall', gradient: ['#3897d3', '#53d6b1'], lv: 65 },
+            绿茵: { pos: 14, text: '瀑布', gradient: ['#3897d3', '#53d6b1'], lv: 65 },
+            City: { pos: 24, text: 'Tower', gradient: ['#fe7777', '#ff8ecb'], lv: 60 },
+            城镇: { pos: 24, text: '高楼', gradient: ['#fe7777', '#ff8ecb'], lv: 60 },
+            Island: { pos: 34, text: 'Jungle', gradient: ['#77e4fe', '#b59cff'], lv: 70 },
+            岛屿: { pos: 34, text: '雨林', gradient: ['#77e4fe', '#b59cff'], lv: 70 }
+        };
+        return configs[answer];
+    }
+
+    function createAreaButton(config) {
+        const btn = document.createElement('a');
+        btn.id = 'subbtn';
+        btn.className = 'btn btn-primary numchange';
+        btn.textContent = config.text;
+        btn.setAttribute('onclick', `choosepos(${config.pos})`);
+        btn.setAttribute('bfcon', getBfcon(config.lv));
+        btn.style.cssText = `background: linear-gradient(135deg, ${config.gradient.join(',')});`;
+        btn.onclick = function () {
+            unsafeWindow.choosepos(config.pos);
+        };
+        return btn;
+    }
+
+    // 主逻辑函数，用于检测并添加按钮
+    function addArea4Button() {
+        try {
+            // 确保在探索页面
+            if (!window.location.pathname.endsWith("/mob/") && !window.location.pathname.endsWith("/e/mob/") && !window.location.pathname.endsWith("/c/mob/")) {
+                return;
+            }
+
+            const titleElement = document.querySelector('#ans0');
+            if (!titleElement) return;
+
+            const answer = titleElement.textContent.trim();
+            const targetTexts = ['Green', 'City', 'Island', '绿茵', '城镇', '岛屿'];
+            if (!targetTexts.includes(answer)) return;
+
+            const buttonConfig = getButtonConfig(answer);
+            if (!buttonConfig) return;
+
+            // --- 核心修改：在整个 document 中检查按钮是否存在 ---
+            // 只要页面上任何地方存在这个onclick属性的按钮，就直接退出
+            const existingBtn = document.querySelector(`[onclick="choosepos(${buttonConfig.pos})"]`);
+            if (existingBtn) {
+                return;
+            }
+
+            // --- 只有在按钮完全不存在时，才执行添加逻辑 ---
+            // 我们仍然将按钮添加到标题后的第一个容器中
+            const container = titleElement.nextElementSibling;
+            if (container) {
+                const newButton = createAreaButton(buttonConfig);
+                container.appendChild(newButton);
+                automationLog("已成功添加4区按钮。"); // 添加日志方便确认
+            }
+        } catch (e) {
+            // 静默处理错误
+        }
+    }
+
+    // -------- 4区按钮功能 结束 --------
+
+
+    // -------- 全自动签到流程 开始 --------
+
+    // 每日任务的配置列表
+    const dailyTasks = [
+        { name: "Reap rewards", path: "/docard/", selector: 'a#btn1[onclick="doit()"]' },
+        { name: "Sign", path: "/sign/", selector: 'a#btn[onclick="doit()"]' },
+        { name: "Daily Card", path: "/dailycard/", selector: 'a#btn1[onclick="dailycard()"]' },
+        { name: "Collect Power", path: "/power/", selector: 'a#btn[onclick="doit()"]' },
+        // { name: "Free Support", path: "/support/", selector: 'a.dollar[onclick="dailyshop()"]' },
+        {
+            name: "Free Support",
+            path: "/support/",
+            selector: 'a.dollar[onclick="dailyshop()"]',
+            // 新增一个“完成选择器”，用来判断任务是否已做完
+            doneSelector: 'a.dollar2'
+        },
+        { name: "Ruarua Ta", path: "/user/?rua=kynh2644j", selector: 'a#btn[onclick="doit()"]' }
+    ];
+    // -------- 获取当前用户名函数 --------
+    function getCurrentUser() {
+        try {
+            // 这个选择器根据你提供的HTML精确地定位到用户名的<font>标签
+            const userElement = document.querySelector('div#ez tr:first-child td:first-child font');
+
+            if (userElement) {
+                // .textContent 会提取标签内的文本，.trim() 会去掉多余的空格
+                return userElement.textContent.trim();
+            }
+            return null; // 如果找不到，返回null
+        } catch (e) {
+            console.error("在获取用户名时发生错误:", e);
+            return null;
+        }
+    }
+
+    function automationLog(message) {
+        console.log(`[ClaimAll] ${message}`); // 总是记录到浏览器控制台
+        try {
+            // 尝试使用游戏内的newlog，如果页面不支持，也不会导致脚本崩溃
+            if (typeof newlog === 'function' && document.getElementById('board')) {
+                newlog(message);
+                document.getElementById("message").value = '';
+            }
+        } catch (e) {
+            // 静默捕获所有newlog可能发生的错误
+        }
+    }
+
+    function getRandomDelay(minSeconds, maxSeconds) {
+        return (Math.random() * (maxSeconds - minSeconds) + minSeconds) * 1000;
+    }
+
+    // 检查任务是否在22小时内已完成
+    function isTaskDoneToday(taskPath, user) {
+        if (!user) return true; // 如果没有用户信息，则默认任务已完成，防止出错
+        // const userKey = `claimTimestamps_${user}`;
+        const userKey = `claimTimestamps_${accountId}`;
+        const timestamps = GM_getValue(userKey, {});
+        const lastClaimTimestamp = timestamps[taskPath];
+
+        if (!lastClaimTimestamp) {
+            return false; // 从未执行过，代表今天未完成
+        }
+
+        const today = new Date();
+        const lastClaimDate = new Date(lastClaimTimestamp);
+
+        // 检查上一次完成任务的年、月、日是否和今天完全相同
+        const isSameDay = today.getFullYear() === lastClaimDate.getFullYear() &&
+            today.getMonth() === lastClaimDate.getMonth() &&
+            today.getDate() === lastClaimDate.getDate();
+
+        // 如果是同一天，则任务已完成；否则，任务未完成
+        return isSameDay;
+    }
+
+    function waitForElement(selector, timeout = 15000) { // 默认等待15秒
+        return new Promise((resolve) => {
+            // 首先，检查元素是否已经存在
+            const initialElement = document.querySelector(selector);
+            if (initialElement) {
+                resolve(initialElement);
+                return;
+            }
+
+            let observer = null;
+            // 设置一个超时定时器，如果在指定时间内没找到，就返回null
+            const timer = setTimeout(() => {
+                if (observer) {
+                    observer.disconnect(); // 停止观察
+                }
+                resolve(null);
+                automationLog(`等待元素“${selector}”超时（${timeout / 1000}秒）。`);
+            }, timeout);
+
+            // 创建并启动观察器
+            observer = new MutationObserver((mutations) => {
+                const targetElement = document.querySelector(selector);
+                if (targetElement) { // 一旦找到目标元素
+                    clearTimeout(timer); // 清除超时定时器
+                    observer.disconnect(); // 停止观察
+                    resolve(targetElement); // 返回找到的元素
+                }
+            });
+
+            // 配置观察器以监视整个文档的子元素变化
+            observer.observe(document.body, {
+                childList: true,
+                subtree: true
+            });
+        });
+    }
+
+    function waitForFunction(functionName, timeout = 10000) { // 默认等待10秒
+        return new Promise((resolve) => {
+            let pollAttempts = 0;
+            const maxPollAttempts = timeout / 200; // 每200毫秒检查一次
+
+            const poller = setInterval(() => {
+                pollAttempts++;
+                // 检查函数是否已在页面的全局作用域中定义
+                if (typeof unsafeWindow[functionName] === 'function') {
+                    clearInterval(poller);
+                    resolve(true); // 找到了，返回true
+                } else if (pollAttempts >= maxPollAttempts) {
+                    clearInterval(poller);
+                    resolve(false); // 超时了，返回false
+                }
+            }, 200);
+        });
+    }
+
+    // 核心函数：在页面加载时检查是否处于自动流程中
+    async function checkAndRunClaimAllSequence() {
+        // 状态机入口，保持不变
+        const continuationState = GM_getValue(`claimAllContinuationState_${accountId}`, null);
+        if (continuationState === 'PROCEED_TO_NEXT') {
+            await GM_setValue(`claimAllContinuationState_${accountId}`, null);
+            const user = GM_getValue(`currentUserClaim_${accountId}`, null);
+            const currentIndex = GM_getValue(`currentClaimTaskIndex_${accountId}`, 0);
+            automationLog("检测到继续状态，准备跳转到下一任务...");
+            if (user) {
+                proceedToNextTask(currentIndex, user);
+            }
+            return;
+        }
+
+        try {
+            const user = GM_getValue(`currentUserClaim_${accountId}`, null);
+            if (!user) return;
+
+            const currentIndex = GM_getValue(`currentClaimTaskIndex_${accountId}`, 0);
+            if (currentIndex >= dailyTasks.length) {
+                await GM_setValue(`currentUserClaim_${accountId}`, null);
+                return;
+            }
+
+            const currentTask = dailyTasks[currentIndex];
+
+            let onCorrectPage = false;
+            if (currentTask.path.includes("?")) {
+                onCorrectPage = window.location.toLocaleString().endsWith(currentTask.path);
+            } else {
+                onCorrectPage = window.location.pathname.endsWith(currentTask.path);
+            }
+
+            if (!onCorrectPage) return;
+
+            automationLog(`已到达 ${currentTask.path}，正在检查任务状态...`);
+
+            if (currentTask.doneSelector && document.querySelector(currentTask.doneSelector)) {
+                automationLog(`任务“${currentTask.name}”已完成的标志，立即跳过。`);
+                proceedToNextTask(currentIndex, user);
+                return;
+            }
+
+            const button = await waitForElement(currentTask.selector, 10000);
+
+            if (button) {
+                automationLog(`找到按钮 "${currentTask.name}"，执行点击操作...`);
+                button.click(); // 回归到最通用的点击方法
+
+                automationLog("操作已执行，正在等待成功信号 (DOM改变或页面跳转)...");
+
+                // --- 全新的、更智能的成功信号等待逻辑 ---
+                await new Promise(resolve => {
+                    let resolved = false;
+                    const ansElement = document.querySelector('#ans');
+
+                    const done = (reason) => {
+                        if (!resolved) {
+                            resolved = true;
+                            if (observer) observer.disconnect();
+                            window.removeEventListener('beforeunload', unloadHandler);
+                            clearTimeout(timeoutTimer);
+                            automationLog(reason);
+                            resolve();
+                        }
+                    };
+
+                    // 观察者1: 等待 "Done" 按钮
+                    if (currentTask.doneSelector) {
+                        waitForElement(currentTask.doneSelector, 15000).then(doneElement => {
+                            if (doneElement) done("检测到'Done'状态，确认成功。");
+                        });
+                    }
+
+                    // 观察者2: 等待页面跳转
+                    const unloadHandler = () => done("检测到页面即将跳转，确认成功。");
+                    window.addEventListener('beforeunload', unloadHandler, { once: true });
+
+                    // 观察者3: 等待 #ans 区域内容变化
+                    let observer = null;
+                    if (ansElement) {
+                        observer = new MutationObserver(() => done("检测到提示区域内容改变，确认成功。"));
+                        observer.observe(ansElement, { childList: true, characterData: true, subtree: true });
+                    }
+
+                    // 观察者4: 最终超时
+                    const timeoutTimer = setTimeout(() => {
+                        done("未检测到明确成功信号，但已等待6秒，默认成功并继续。");
+                    }, 6000);
+                });
+
+                automationLog("成功信号已确认，标记任务并准备继续...");
+                const timestamps = GM_getValue(`claimTimestamps_${user}`, {});
+                timestamps[currentTask.path] = Date.now();
+                await GM_setValue(`claimTimestamps_${user}`, timestamps);
+
+                const randomDelay = getRandomDelay(2, 4);
+                automationLog(`将随机等待 ${(randomDelay / 1000).toFixed(1)} 秒后继续...`);
+                // proceedToNextTask(currentIndex, user);
+                setTimeout(async () => {
+                    proceedToNextTask(currentIndex, user);
+                }, randomDelay);
+
+            } else {
+                automationLog(`等待按钮超时，跳过此任务。`);
+                proceedToNextTask(currentIndex, user);
+            }
+
+        } catch (e) {
+            automationLog("自动签到流程发生未知错误，已强制终止。");
+            console.error(e);
+            await GM_setValue(`currentUserClaim_${accountId}`, null);
+        }
+    }
+
+    // 辅助函数：处理跳转到下一个任务的逻辑，避免代码重复
+    function proceedToNextTask(currentIndex, user) {
+        try {
+            let nextIndex = -1;
+            for (let i = currentIndex + 1; i < dailyTasks.length; i++) {
+                if (!isTaskDoneToday(dailyTasks[i].path, user)) {
+                    nextIndex = i;
+                    break;
+                }
+            }
+
+            if (nextIndex !== -1) {
+                GM_setValue(`currentClaimTaskIndex_${accountId}`, nextIndex);
+                const nextTask = dailyTasks[nextIndex];
+                automationLog(`准备前往下一个任务: ${nextTask.name}`);
+                window.location.href = nextTask.path;
+            } else {
+                automationLog("所有每日任务已执行完毕！即将跳转到探索页面...");
+                GM_setValue(`isClaimingAll_${accountId}`, false);
+                GM_setValue(`currentUserClaim_${accountId}`, null);
+                window.location.href = '/mob/';
+            }
+        } catch (e) {
+            automationLog("跳转下一任务时出错，流程终止。");
+            console.error(e);
+            GM_setValue(`isClaimingAll_${accountId}`, false);
+        }
+    }
+
+    // 新增的函数，用于处理从其他页面跳转过来后需要启动流程的情况
+    function handleDelayedStart() {
+        // 检查是否存在“导航后启动”的标志
+        if (GM_getValue(`startClaimAllAfterNav_${accountId}`, false) === true) {
+            GM_setValue(`startClaimAllAfterNav_${accountId}`, false); // 立刻清除标志，防止重复执行
+
+            // const user = getCurrentUser();
+            const user = accountId;
+            if (user) {
+                automationLog("已在个人空间获取账户信息，准备启动签到流程...");
+
+                // --- 这里是修改的部分 ---
+                // 1. 设置一个2到5秒的随机延迟
+                const delay = getRandomDelay(2, 5);
+                automationLog(`等待 ${(delay / 1000).toFixed(1)} 秒后开始...`);
+
+                // 2. 将后续的启动逻辑都放入这个延迟中
+                setTimeout(() => {
+                    let firstTaskIndex = -1;
+                    for (let i = 0; i < dailyTasks.length; i++) {
+                        if (!isTaskDoneToday(dailyTasks[i].path, user)) {
+                            firstTaskIndex = i;
+                            break;
+                        }
+                    }
+                    if (firstTaskIndex !== -1) {
+                        GM_setValue(`isClaimingAll_${accountId}`, true);
+                        GM_setValue(`currentUserClaim_${accountId}`, user);
+                        GM_setValue(`currentClaimTaskIndex_${accountId}`, firstTaskIndex);
+                        window.location.href = dailyTasks[firstTaskIndex].path;
+                    } else {
+                        automationLog(`账户 [${user}] 的所有每日任务在22小时内均已完成。`);
+                    }
+                }, delay); // 使用上面生成的随机延迟
+
+            } else {
+                automationLog("错误：已跳转到个人空间，但仍无法识别用户名，流程终止。");
+            }
+        }
+    }
+
+    // 每次脚本加载时都执行一次检查，以驱动自动流程
+    handleDelayedStart();
+    checkAndRunClaimAllSequence();
+
+
+    // -------- 全自动签到流程 结束 --------
+
+    // -------- Nano 机器人核心逻辑 开始 --------
+
+    // 辅助函数：时间格式化
+    function formatTime(date) {
+        const pad = (n) => n.toString().padStart(2, '0');
+        const hours = pad(date.getHours());
+        const minutes = pad(date.getMinutes());
+        const seconds = pad(date.getSeconds());
+        return `${hours}:${minutes}:${seconds}`;
+    }
+
+    // 主执行函数，会在NPC页面加载时被调用
+    async function executeNanoSequence() {
+        // 只有在NPC页面且机器人处于运行状态时，才执行
+        if (!window.location.pathname.endsWith('/npc/') || !GM_getValue(`isNanoAutomatonRunning_${accountId}`, false)) {
+            return;
+        }
+
+        automationLog("已到达NPC页面，开始执行Nano操作序列...");
+
+        try {
+            // 步骤1：验证NPC身份
+            const titleElement = document.querySelector('h1.hestia-title.title-in-content');
+            if (!titleElement || !titleElement.textContent.trim().includes('Nano')) {
+                automationLog("错误：当前不是Nano NPC，本轮任务终止。");
+                // 你可以选择停止整个流程，或等待下一轮
+                // stopNanoAutomaton(); // 如果想完全停止，取消此行注释
+                return; // 仅结束本轮
+            }
+            automationLog("NPC 'Nano' 身份确认。");
+            await delay(1000);
+
+            // 步骤2：重置选择
+            const resetButton = document.querySelector('button#craftbutton[onclick="clearnano();"]');
+            if (resetButton) {
+                resetButton.click();
+                automationLog("点击了“Reset Choose”按钮。");
+                await delay(1000);
+            }
+
+            // 步骤3：选择卡片
+            automationLog("正在选择最后第二张卡片4次...");
+            for (let i = 0; i < 4; i++) {
+                const cards = document.getElementsByName("cardchoose");
+                if (cards.length >= 2) {
+                    cards[cards.length - 2].click();
+                    await delay(300); // 模拟点击间隔
+                }
+            }
+
+            // 步骤4：验证选择数量
+            if (unsafeWindow.selectnum !== 4) {
+                automationLog(`错误：卡片选择数量为 ${unsafeWindow.selectnum}，而不是4。任务终止。`);
+                stopNanoAutomaton(); // 这是一个严重错误，停止整个流程
+                return;
+            }
+            automationLog("卡片选择数量确认。");
+
+            // 步骤5 & 6 & 7：点击碰撞并处理各种失败情况
+            const success = await collideWithRetries();
+
+            // 步骤8：调度下一次运行
+            if (success) {
+                automationLog("本轮操作成功！");
+                scheduleNextNanoRun();
+            } else {
+                automationLog("多次尝试后仍未成功，流程终止。");
+                stopNanoAutomaton();
+            }
+
+        } catch (error) {
+            automationLog("executeNanoSequence执行期间发生严重错误。");
+            console.error(error);
+            stopNanoAutomaton(); // 发生任何错误时，都应停止流程以保安全
+        }
+    }
+
+    // 带有重试逻辑的碰撞函数
+    async function collideWithRetries() {
+        automationLog("collideWithRetries: 函数启动。");
+        const collideButtonSelector = 'button#craftbutton[onclick*="nanoatom()"]';
+        const ansSelector = '#ans, .note.note-danger';
+
+        for (let attempt = 1; attempt <= 10; attempt++) {
+            let mainButton = document.querySelector(collideButtonSelector);
+            if (!mainButton || window.getComputedStyle(mainButton).display !== 'block') {
+                automationLog("任务开始时按钮状态已为成功，直接返回。");
+                return true;
+            }
+
+            const ansElementBeforeClick = document.querySelector(ansSelector);
+            if (ansElementBeforeClick) {
+                automationLog("点击前清除旧的提示信息...");
+                ansElementBeforeClick.textContent = '';
+            }
+
+            automationLog(`第 ${attempt} 次尝试点击“Atom collide”...`);
+            mainButton.click();
+
+            const result = await new Promise((resolve) => {
+                let pollAttempts = 0;
+                const maxPollAttempts = 40;
+                const innerPoller = setInterval(() => {
+                    pollAttempts++;
+                    const buttonAfterClick = document.querySelector(collideButtonSelector);
+
+                    if (!buttonAfterClick || window.getComputedStyle(buttonAfterClick).display !== 'block') {
+                        clearInterval(innerPoller);
+                        resolve('success');
+                        return;
+                    }
+
+                    const ansElement = document.querySelector(ansSelector);
+                    if (ansElement && ansElement.textContent.includes('You still need')) {
+                        clearInterval(innerPoller);
+                        resolve('cooldown');
+                        return;
+                    }
+
+                    if (ansElement && ansElement.textContent.includes('Deadlock found')) {
+                        clearInterval(innerPoller);
+                        resolve('deadlock');
+                        return;
+                    }
+
+                    if (pollAttempts >= maxPollAttempts) {
+                        clearInterval(innerPoller);
+                        resolve('timeout');
+                    }
+                }, 500);
+            });
+
+            automationLog(`collideWithRetries: 轮询结束，结果为: '${result}'`);
+
+            if (result === 'success') {
+                automationLog("操作成功！");
+                return true;
+            }
+
+            if (result === 'cooldown') {
+                // --- 这里是核心修改 ---
+                const ansElement = document.querySelector(ansSelector);
+                const timeString = ansElement.textContent;
+                const minutesMatch = timeString.match(/(\d+)m/);
+                const secondsMatch = timeString.match(/(\d+)s/);
+                let waitSeconds = 5; // 额外增加5秒的缓冲时间
+                if (minutesMatch) waitSeconds += parseInt(minutesMatch[1], 10) * 60;
+                if (secondsMatch) waitSeconds += parseInt(secondsMatch[1], 10);
+
+                // 1. 计算出冷却结束的绝对时间点
+                const cooldownEndDate = new Date(Date.now() + waitSeconds * 1000);
+
+                // 2. 在日志中打印出这个时间点
+                automationLog(`检测到冷却，将等待 ${waitSeconds} 秒。预计在 ${formatTime(cooldownEndDate)} 后重试。`);
+
+                await delay(waitSeconds * 1000);
+                continue;
+            }
+
+            if (result === 'deadlock') {
+                const randomWait = getRandomDelay(1, 2);
+                automationLog(`collideWithRetries: 检测到数据库死锁，短暂等待 ${(randomWait / 1000).toFixed(1)} 秒后立即重试。`);
+                await delay(randomWait);
+                continue;
+            }
+
+            if (result === 'timeout') {
+                const randomWait = getRandomDelay(3, 6);
+                automationLog(`操作未在20秒内成功，随机等待 ${(randomWait / 1000).toFixed(1)} 秒后重试...`);
+                await delay(randomWait);
+                continue;
+            }
+        }
+
+        automationLog("所有重试次数已用尽，任务失败。");
+        return false;
+    }
+
+    // 调度下一次运行的函数
+    function scheduleNextNanoRun() {
+        if (!GM_getValue(`isNanoAutomatonRunning_${accountId}`, false)) return;
+
+        const baseInterval = 20 * 60 * 1000; // 20分钟的基础间隔
+        const randomInterval = getRandomDelay(0.2 * 60, 2 * 60); // 随机延迟12到120秒
+        const nextRunDelay = baseInterval + randomInterval;
+
+        // --- 这里是新增的代码 ---
+        // 1. 计算出下一次运行的准确时间戳
+        const nextRunTimestamp = Date.now() + nextRunDelay;
+        // 2. 根据时间戳创建一个日期对象
+        const nextRunDate = new Date(nextRunTimestamp);
+
+        automationLog(`任务完成。基础间隔20分钟，本次随机增加 ${(randomInterval / 60000).toFixed(1)} 分钟。`);
+        automationLog(`下一次将在约 ${(nextRunDelay / 60000).toFixed(1)} 分钟后运行。`);
+
+        // 3. 使用 formatTime 函数，打印出 HH:MM:SS 格式的绝对时间
+        automationLog(`预定运行的确切时间为: ${formatTime(nextRunDate)}`);
+
+        setTimeout(() => {
+            if (!GM_getValue(`isNanoAutomatonRunning_${accountId}`, false)) return;
+            automationLog("预定时间已到，开始新一轮任务。");
+            window.location.href = 'https://ruarua.ru/npc/';
+        }, nextRunDelay);
+    }
+
+
+    // 每次页面加载时，都尝试执行一次主函数
+    executeNanoSequence();
+
+    // -------- Nano 机器人核心逻辑 结束 --------
+
+    // ==================================================================================
+    // ======================== 全自动探索（打怪）功能模块 开始 =========================
+    // ==================================================================================
+    let isControllerBusy = false; // MODIFIED: 添加一个全局的“繁忙”标志
+
+    // 日志记录器
+    function autoFightLog(message) {
+        console.log(`[AutoFight] ${message}`);
+        try {
+            // 假设脚本中已有 newlog 函数
+            if (typeof newlog === 'function' && document.getElementById('board')) {
+                newlog(`[自动探索] ${message}`);
+                document.getElementById("message").value = '';
+            }
+        } catch (e) { /* 静默处理 */ }
+    }
+
+    // 状态管理器 (包含运行状态, 路线, 进度, 排除列表)
+    const autoFightState = {
+        isRunning: () => GM_getValue(`autoFight_isRunning_${accountId}`, false),
+        setRunning: (status) => GM_setValue(`autoFight_isRunning_${accountId}`, status),
+        getRoute: () => GM_getValue(`autoFight_route_${accountId}`, 'm-c-i-g-f-h'),
+        setRoute: (routeStr) => {
+            const cleanedRoute = routeStr.toLowerCase().replace(/[^mcigfh-]/g, '');
+            GM_setValue(`autoFight_route_${accountId}`, cleanedRoute);
+            autoFightLog(`探索路线已更新为: ${cleanedRoute}`);
+        },
+        getCurrentRouteIndex: () => GM_getValue(`autoFight_routeIndex_${accountId}`, 0),
+        setCurrentRouteIndex: (index) => GM_setValue(`autoFight_routeIndex_${accountId}`, index),
+        resetRouteIndex: () => GM_setValue(`autoFight_routeIndex_${accountId}`, 0),
+        getCompletedZones: () => GM_getValue(`autoFight_completedZones_${accountId}`, []),
+        addCompletedZone: (pos) => {
+            const completed = autoFightState.getCompletedZones();
+            if (!completed.includes(pos)) {
+                completed.push(pos);
+                GM_setValue(`autoFight_completedZones_${accountId}`, completed);
+            }
+        },
+        clearCompletedZones: () => GM_setValue(`autoFight_completedZones_${accountId}`, []),
+        getExclusionList: () => GM_getValue(`autoFight_exclusionList_${accountId}`, []),
+        addToExclusionList: (zoneIds) => {
+            const list = new Set(autoFightState.getExclusionList());
+            zoneIds.forEach(id => list.add(id));
+            GM_setValue(`autoFight_exclusionList_${accountId}`, Array.from(list));
+            autoFightLog(`已将 [${zoneIds.join(', ')}] 添加到排除列表。`);
+        },
+        removeFromExclusionList: (zoneIds) => {
+            const list = new Set(autoFightState.getExclusionList());
+            zoneIds.forEach(id => list.delete(id));
+            GM_setValue(`autoFight_exclusionList_${accountId}`, Array.from(list));
+            autoFightLog(`已将 [${zoneIds.join(', ')}] 从排除列表移除。`);
+        },
+        listExclusions: () => {
+            const list = autoFightState.getExclusionList();
+            if (list.length === 0) autoFightLog("当前没有排除任何区域。");
+            else autoFightLog(`当前排除的区域: ${list.join(', ')}`);
+        }
+    };
+
+    async function processMainMobPage() {
+        autoFightLog("正在分析探索页面...");
+        const regionMap = { 'Green': 'g', 'City': 'c', 'Main': 'm', 'Island': 'i', 'Fairyland': 'f', 'Hell': 'h' };
+        const regionNameElement = await waitForElement('#ans0');
+        if (!regionNameElement) { autoFightLog("无法识别当前群系。"); return; }
+        const currentRegionName = regionNameElement.textContent.trim();
+        const currentRegionCode = regionMap[currentRegionName];
+        if (!currentRegionCode) { autoFightLog(`未知群系: ${currentRegionName}。`); return; }
+        const exclusionList = autoFightState.getExclusionList();
+        const availableZones = [];
+        document.querySelectorAll('a#subbtn[onclick^="choosepos("]').forEach(btn => {
+            const posMatch = btn.getAttribute('onclick').match(/choosepos\((\-?\d+)\)/);
+            if (posMatch && parseInt(posMatch[1], 10) > 0) {
+                const pos = parseInt(posMatch[1], 10);
+                const zoneNumber = pos % 10 || (pos > 0 && pos < 10 ? pos : 0); // 处理 Main 区域 pos 1-6
+                availableZones.push({ pos, name: btn.textContent.trim(), id: `${currentRegionCode}${zoneNumber}`, element: btn });
+            }
+        });
+        const completedZones = autoFightState.getCompletedZones();
+        let nextZone = null;
+        for (const zone of availableZones) {
+            if (!completedZones.includes(zone.pos) && !exclusionList.includes(zone.id)) {
+                nextZone = zone;
+                break;
+            } else if (exclusionList.includes(zone.id)) {
+                autoFightLog(`区域 ${zone.name} (${zone.id}) 在排除列表中，已跳过。`);
+            }
+        }
+        if (nextZone) {
+            autoFightLog(`找到下一个目标: ${nextZone.name} (${nextZone.id})，正在进入...`);
+            nextZone.element.click();
+            await delay(getRandomDelay(4.3, 6.3));
+        } else {
+            autoFightLog("当前群系所有可用区域均已完成，准备旅行。");
+            autoFightState.clearCompletedZones();
+            travelToNextRegion();
+        }
+    }
+
+    async function fightMonster() {
+        autoFightLog("分析战斗页面...");
+        const params = new URLSearchParams(window.location.search);
+        const currentPos = parseInt(params.get('pos'), 10);
+        const allDivs = document.querySelectorAll('div');
+        let pageState = "UNKNOWN";
+        for (const div of allDivs) {
+            const text = div.textContent || "";
+            if (text.includes('This wave is over')) { pageState = "TIMED_OUT"; break; }
+            if (text.includes('You have already defeated this wave of mobs')) { pageState = "ALREADY_DEFEATED"; break; }
+        }
+        if (pageState === "TIMED_OUT") {
+            autoFightLog("怪物已超时。将此区域标记为完成。");
+            if (currentPos) autoFightState.addCompletedZone(currentPos);
+        } else if (pageState === "ALREADY_DEFEATED") {
+            autoFightLog("怪物已被击败。将此区域标记为完成。");
+            if (currentPos) autoFightState.addCompletedZone(currentPos);
+        } else {
+            autoFightLog("未发现特殊状态，开始寻找攻击按钮...");
+            const fightButton = await waitForElement('#fightbtn');
+            if (!fightButton) {
+                autoFightLog("在未知状态下未找到攻击按钮，将此区域标记为完成以防卡死。");
+                if (currentPos) autoFightState.addCompletedZone(currentPos);
+            } else {
+                let fightSuccessful = false;
+                while (!fightSuccessful && autoFightState.isRunning()) {
+                    const currentFightButton = document.getElementById('fightbtn');
+                    const despawnTime = parseInt(document.getElementById("post-193").innerHTML.match(/(?<=targetTimestamp\s=\s)\d+/)[0], 10);
+                    if (!currentFightButton || (Date.now() / 1000 > despawnTime)) {
+                        autoFightLog("攻击按钮消失或怪物超时，判定战斗结束。");
+                        break;
+                    }
+                    autoFightLog("发起攻击...");
+                    currentFightButton.click();
+                    await new Promise(resolve => {
+                        const observer = new MutationObserver(() => {
+                            const ansElement = document.getElementById('ans');
+                            if (ansElement && ansElement.textContent) {
+                                const text = ansElement.textContent;
+                                if (text.includes('you') || text.includes('You') || text.includes('You defeated a mob') || text.includes('Attack successful!') || text.includes('You have already defeated') || text.includes('-5')) {
+                                    autoFightLog("攻击成功！");
+                                    fightSuccessful = true;
+                                    observer.disconnect();
+                                    resolve();
+                                } else if (text.includes('Battle failed') || text.includes('Wait some seconds')) {
+                                    autoFightLog("攻击失败或冷却中...");
+                                    observer.disconnect();
+                                    resolve();
+                                }
+                            }
+                        });
+                        const ansNode = document.getElementById('ans');
+                        if (ansNode) observer.observe(ansNode, { childList: true, characterData: true, subtree: true });
+                        setTimeout(() => { observer.disconnect(); resolve(); }, 8000);
+                    });
+                    if (!fightSuccessful) await delay(getRandomDelay(2, 4)); // 正确调用
+                }
+                if (fightSuccessful) {
+                    if (currentPos) autoFightState.addCompletedZone(currentPos);
+                }
+            }
+        }
+        autoFightLog("操作完毕，返回群系选择页面...");
+        const backButton = document.querySelector('a[href*="/mob/"]') || document.querySelector('a[href*="/c/mob/"]');
+        await delay(getRandomDelay(1, 3));
+        if (backButton) backButton.click();
+        else window.location.href = '/mob/';
+        await delay(getRandomDelay(2, 4));
+    }
+
+    async function travelToNextRegion() {
+        autoFightLog("开始执行旅行程序...");
+        const route = autoFightState.getRoute().split('-').map(r => r.trim().toLowerCase());
+        let currentRouteIndex = autoFightState.getCurrentRouteIndex();
+        currentRouteIndex = (currentRouteIndex + 1) % route.length;
+        autoFightState.setCurrentRouteIndex(currentRouteIndex);
+        const regionMap = { m: 'Main', g: 'Green', c: 'City', i: 'Island', f: 'Fairyland', h: 'Hell' };
+        const nextRegionShort = route[currentRouteIndex];
+        const nextRegionFullName = regionMap[nextRegionShort];
+        if (!nextRegionFullName) {
+            autoFightLog(`无效的路线配置: ${nextRegionShort}，停止。`);
+            autoFightState.setRunning(false);
+            return;
+        }
+        autoFightLog(`下一个目标群系: ${nextRegionFullName}。`);
+        const travelButton = document.getElementById('travelbtn');
+        if (!travelButton) {
+            autoFightLog("找不到旅行按钮，流程中断。");
+            autoFightState.setRunning(false);
+            return;
+        }
+        await delay(getRandomDelay(2, 4));
+        travelButton.click();
+    }
+
+    // async function processTravelPage() {
+    //     autoFightLog("已到达旅行页面，准备选择目的地...");
+    //     const route = autoFightState.getRoute().split('-').map(r => r.trim().toLowerCase());
+    //     const currentRouteIndex = autoFightState.getCurrentRouteIndex();
+    //     const nextRegionShort = route[currentRouteIndex];
+    //     const regionMap = { m: 'Main', g: 'Green', c: 'City', i: 'Island', f: 'Fairyland', h: 'Hell' };
+    //     const nextRegionFullName = regionMap[nextRegionShort];
+    //     const destinationButton = Array.from(document.querySelectorAll('a#subbtn[onclick^="regiongo"]')).find(btn => btn.textContent.trim() === nextRegionFullName);
+    //     if (destinationButton) {
+    //         autoFightLog(`找到目的地: ${nextRegionFullName}，执行传送。`);
+    //         const originalConfirm = unsafeWindow.confirm;
+    //         unsafeWindow.confirm = () => true;
+    //         await delay(getRandomDelay(3, 5));
+    //         destinationButton.click();
+    //         unsafeWindow.confirm = originalConfirm;
+    //         await delay(3000);
+    //         window.location.href = '/mob/';
+    //     } else {
+    //         autoFightLog(`在旅行页面找不到目的地 ${nextRegionFullName}，流程中断。`);
+    //         autoFightState.setRunning(false);
+    //     }
+    // }
+
+    // async function processTravelPage() {
+    //     autoFightLog("已到达旅行页面，准备选择目的地...");
+    //     const route = autoFightState.getRoute().split('-').map(r => r.trim().toLowerCase());
+    //     let currentRouteIndex = autoFightState.getCurrentRouteIndex();
+
+    //     const regionMap = { m: 'Main', g: 'Green', c: 'City', i: 'Island', f: 'Fairyland', h: 'Hell' };
+
+    //     let targetRegionName = regionMap[route[currentRouteIndex]];
+
+    //     const allTravelButtons = Array.from(document.querySelectorAll('a#subbtn[onclick^="regiongo"]'));
+    //     let destinationButton = allTravelButtons.find(btn => btn.textContent.trim() === targetRegionName);
+
+    //     // 【核心修复】如果根据当前索引找不到目标，则认为索引可能已过时或错误，开始自动校正
+    //     if (!destinationButton) {
+    //         autoFightLog(`按当前路线索引 [${currentRouteIndex}] 未找到目的地 [${targetRegionName}]。尝试自动校正...`);
+
+    //         // 遍历整个路线，寻找第一个存在于旅行列表中的目的地
+    //         for (let i = 0; i < route.length; i++) {
+    //             const potentialNextIndex = (currentRouteIndex + i + 1) % route.length; // 从下一个开始循环查找
+    //             const potentialTargetName = regionMap[route[potentialNextIndex]];
+    //             const potentialButton = allTravelButtons.find(btn => btn.textContent.trim() === potentialTargetName);
+
+    //             if (potentialButton) {
+    //                 autoFightLog(`校正成功！找到可用目的地 [${potentialTargetName}]。更新路线索引至 [${potentialNextIndex}]。`);
+    //                 autoFightState.setCurrentRouteIndex(potentialNextIndex); // 更新状态，指向正确的目标
+    //                 destinationButton = potentialButton;
+    //                 targetRegionName = potentialTargetName;
+    //                 break; // 找到后立刻跳出循环
+    //             }
+    //         }
+    //     }
+
+    //     if (destinationButton) {
+    //         autoFightLog(`找到目的地: ${targetRegionName}，执行传送。`);
+    //         const originalConfirm = unsafeWindow.confirm;
+    //         unsafeWindow.confirm = () => true;
+    //         await delay(getRandomDelay(3, 5));
+    //         destinationButton.click();
+    //         unsafeWindow.confirm = originalConfirm;
+    //         await delay(3000);
+    //         window.location.href = '/mob/';
+    //     } else {
+    //         autoFightLog(`在旅行页面找不到任何可用的目的地，流程中断。`);
+    //         autoFightState.setRunning(false);
+    //     }
+    // }
+
+    async function processTravelPage() {
+        autoFightLog("已到达旅行页面，准备选择目的地...");
+        const route = autoFightState.getRoute().split('-').map(r => r.trim().toLowerCase());
+        let currentRouteIndex = autoFightState.getCurrentRouteIndex();
+
+        const regionMap = { m: 'Main', g: 'Green', c: 'City', i: 'Island', f: 'Fairyland', h: 'Hell' };
+
+        let targetRegionName = regionMap[route[currentRouteIndex]];
+
+        const allTravelButtons = Array.from(document.querySelectorAll('a#subbtn[onclick^="regiongo"]'));
+        let destinationButton = allTravelButtons.find(btn => btn.textContent.trim() === targetRegionName);
+
+        // 如果根据当前索引找不到目标，则尝试自动校正
+        if (!destinationButton) {
+            autoFightLog(`按当前路线索引 [${currentRouteIndex}] 未找到目的地 [${targetRegionName}]。尝试自动校正...`);
+
+            for (let i = 0; i < route.length; i++) {
+                const potentialNextIndex = (currentRouteIndex + i + 1) % route.length;
+                const potentialTargetName = regionMap[route[potentialNextIndex]];
+                const potentialButton = allTravelButtons.find(btn => btn.textContent.trim() === potentialTargetName);
+
+                if (potentialButton) {
+                    autoFightLog(`校正成功！找到可用目的地 [${potentialTargetName}]。更新路线索引至 [${potentialNextIndex}]。`);
+                    autoFightState.setCurrentRouteIndex(potentialNextIndex);
+                    destinationButton = potentialButton;
+                    targetRegionName = potentialTargetName;
+                    break;
+                }
+            }
+        }
+
+        if (destinationButton) {
+            autoFightLog(`找到目的地: ${targetRegionName}，执行传送。`);
+            const originalConfirm = unsafeWindow.confirm;
+            unsafeWindow.confirm = () => true;
+            await delay(getRandomDelay(3, 5));
+            destinationButton.click();
+            unsafeWindow.confirm = originalConfirm;
+        } else {
+            // 【核心修复】如果所有尝试和校正都失败了，则执行逃生逻辑
+            autoFightLog(`在旅行页面找不到任何可用的目的地，将强制返回探索主页以恢复流程...`);
+            await delay(getRandomDelay(2, 4));
+            // 直接导航。脚本将在新页面加载后，根据已保存的 true 状态自动恢复运行。
+            window.location.href = '/mob/';
+        }
+    }
+
+    // 在脚本中添加或替换为这个新版本的函数
+    async function processHellPage() {
+        autoFightLog("正在分析Hell页面...");
+
+        // 1. 优先尝试探索和战斗
+        const exclusionList = autoFightState.getExclusionList();
+        const availableZones = [];
+        document.querySelectorAll('a#subbtn[onclick^="choosepos("]').forEach(btn => {
+            const posMatch = btn.getAttribute('onclick').match(/choosepos\((\-?\d+)\)/);
+            if (posMatch) {
+                const pos = parseInt(posMatch[1], 10);
+                const zoneNumber = Math.abs(pos);
+                availableZones.push({ pos, name: btn.textContent.trim(), id: `h${zoneNumber}`, element: btn });
+            }
+        });
+
+        const completedZones = autoFightState.getCompletedZones();
+        let nextZone = null;
+        for (const zone of availableZones) {
+            if (!completedZones.includes(zone.pos) && !exclusionList.includes(zone.id)) {
+                nextZone = zone;
+                break;
+            }
+        }
+
+        if (nextZone) {
+            autoFightLog(`在Hell中找到目标: ${nextZone.name}，进入...`);
+            nextZone.element.click();
+            return;
+        }
+
+        // 2. 如果没有可战斗的区域，则处理离开逻辑
+        autoFightLog("Hell区域均已完成，检查离开条件...");
+
+        const leaveTimeElement = Array.from(document.querySelectorAll('span'))
+            .find(s => s.textContent.trim() === 'Leave hell time');
+
+        if (leaveTimeElement) {
+            const timeString = leaveTimeElement.parentElement.textContent.match(/\d{4}\/\d{2}\/\d{2}\s\d{2}:\d{2}:\d{2}/);
+
+            if (timeString) {
+                const leaveTimestamp = new Date(timeString[0]).getTime();
+                const currentTimestamp = Date.now();
+
+                if (currentTimestamp >= leaveTimestamp) {
+                    autoFightLog("已达到免费离开时间，执行离开操作。");
+
+                    // 【关键修改】使用更灵活的选择器来查找按钮
+                    const leaveButton = document.querySelector('a[onclick*="hellleave"], a[onclick*="showConfirmation"]');
+
+                    if (leaveButton) {
+                        autoFightLog("已找到离开按钮，正在点击...");
+
+                        // 检查是否是需要确认的按钮
+                        if (leaveButton.getAttribute('onclick').includes('showConfirmation')) {
+                            // 绕过弹窗确认
+                            const originalConfirm = unsafeWindow.confirm;
+                            unsafeWindow.confirm = () => true;
+                            leaveButton.click();
+                            unsafeWindow.confirm = originalConfirm;
+                            autoFightLog("已绕过确认弹窗并点击。");
+                        } else {
+                            // 直接点击
+                            leaveButton.click();
+                            autoFightLog("已直接点击。");
+                        }
+                    } else {
+                        autoFightLog("错误：找不到离开Hell的按钮。");
+                    }
+                } else {
+                    const waitSeconds = Math.round((leaveTimestamp - currentTimestamp) / 1000);
+                    autoFightLog(`尚未达到离开时间，还需等待 ${waitSeconds} 秒。`);
+                }
+            } else {
+                autoFightLog("无法从页面解析离开时间。");
+            }
+        } else {
+            autoFightLog("页面上找不到'Leave hell time'信息。");
+        }
+    }
+
+    async function autoFightController() {
+        // 如果没有运行，或者正在忙，则直接退出
+        if (!autoFightState.isRunning() || isControllerBusy) return;
+
+        isControllerBusy = true; // 开始工作，立刻上锁
+        autoFightLog("控制器启动，分析当前页面...");
+
+        try {
+            // 【最高优先级修复】检查是否被人机验证卡住
+            const pageTextContent = document.body.textContent || "";
+            if (pageTextContent.includes("人机验证失败，已记录。")) {
+                autoFightLog("检测到人机验证失败！强制返回探索主页以尝试恢复...");
+                await delay(getRandomDelay(3, 5)); // 随机等待一小会儿再跳转
+                window.location.href = '/mob/';
+                return; // 立刻结束本次控制器任务，等待页面跳转
+            }
+
+            // 如果未被卡住，则执行常规流程
+            const path = window.location.pathname;
+            const search = window.location.search;
+
+            if (path.includes('/mob/')) {
+                // 当前在探索页面，这是我们的“主场”
+                if (search.includes('pos=')) {
+                    // 在具体的战斗区域
+                    await fightMonster();
+                } else {
+                    // 在群系选择主页
+                    const travelCountdownElement = document.getElementById('countdown_travel');
+
+                    if (travelCountdownElement) {
+                        // 检测到旅行倒计时元素
+                        if (travelCountdownElement.textContent.includes("00 : 00")) {
+                            // 旅行已经结束，但页面未跳转
+                            autoFightLog("旅行已完成，刷新页面以继续...");
+                            await delay(getRandomDelay(1.5, 2.5));
+                            window.location.href = '/mob/';
+                        } else {
+                            // 旅行仍在进行中，等待
+                            autoFightLog("正在旅行中...");
+                        }
+                    } else {
+                        // 没有旅行倒计时，说明在正常的群系主页
+                        const regionNameElement = await waitForElement('#ans0');
+                        if (regionNameElement && regionNameElement.textContent.trim() === 'Hell') {
+                            // 特殊情况：处理Hell群系
+                            await processHellPage();
+                        } else {
+                            // 正常的群系主页
+                            await processMainMobPage();
+                        }
+                    }
+                }
+            } else if (path.endsWith('/teleport/')) {
+                // 在旅行传送页面
+                await processTravelPage();
+            } else {
+                // 如果不在任何已知的工作页面，则强制返回探索主页
+                autoFightLog(`检测到位于未知页面 [${path}]，强制返回探索主页...`);
+                await delay(getRandomDelay(2, 4));
+                window.location.href = '/mob/';
+            }
+        } catch (error) {
+            autoFightLog(`控制器发生错误: ${error}`);
+            console.error(error);
+        } finally {
+            isControllerBusy = false; // 任务完成，无论成功与否，都必须解锁
+            autoFightLog("控制器执行完毕，已解锁。");
+        }
+    }
+
+    function createAutoFightButton() {
+        if (document.getElementById('tmAutoFightBtn')) return;
+        const isRunning = autoFightState.isRunning();
+        const btn = document.createElement("button");
+        btn.id = "tmAutoFightBtn";
+        btn.textContent = isRunning ? "停止自动探索" : "开始自动探索";
+        btn.style.cssText = `position: fixed; bottom: 180px; right: 20px; padding: 10px 15px; background: ${isRunning ? '#db2828' : '#00b5ad'}; color: white; border: none; border-radius: 5px; cursor: pointer; z-index: 9999;`;
+        btn.addEventListener("click", () => {
+            const wasRunning = autoFightState.isRunning();
+            autoFightState.setRunning(!wasRunning);
+            if (!wasRunning) {
+                autoFightLog("自动探索已启动！");
+                autoFightController();
+            } else {
+                autoFightLog("自动探索已手动停止。");
+            }
+            const isNowRunning = autoFightState.isRunning();
+            btn.textContent = isNowRunning ? "停止自动探索" : "开始自动探索";
+            btn.style.background = isNowRunning ? '#db2828' : '#00b5ad';
+        });
+        document.body.appendChild(btn);
+    }
+
+    // // --- MODIFIED: 统一的启动和监测系统 ---
+    // function startAutoFightSystem() {
+    //     let lastKnownURL = window.location.href;
+
+    //     debugger
+
+    //     // 检查并运行控制器的核心函数
+    //     const checkAndRun = () => {
+    //         // 只有在“自动探索”开启且控制器不繁忙时才运行
+    //         if (autoFightState.isRunning() && !isControllerBusy) {
+    //             autoFightController();
+    //         }
+    //     };
+
+    //     // 1. 首次加载时触发
+    //     // 使用 DOMContentLoaded 确保页面基本结构加载完毕后再执行
+    //     window.addEventListener('DOMContentLoaded', () => {
+    //         setTimeout(() => {
+    //             autoFightLog("脚本首次加载，执行探索检查...");
+    //             checkAndRun();
+    //         }, 2000); // 延迟2秒，给页面和数据充足的加载时间
+    //     });
+
+    //     // 2. 持续监测 PJAX 跳转和旅行状态
+    //     setInterval(() => {
+    //         if (window.location.href !== lastKnownURL) {
+    //             autoFightLog("侦测到页面（PJAX）变化...");
+    //             lastKnownURL = window.location.href;
+    //             setTimeout(checkAndRun, 1500); // 延迟1.5秒，等待PJAX内容渲染
+    //         } else if (document.getElementById('countdown_travel')) {
+    //             // 如果在旅行中，也需要周期性地重新检查，以便旅行结束后能继续
+    //             checkAndRun();
+    //         }
+    //     }, 5000); // 每5秒检查一次URL变化和旅行状态
+    // }
+
+    // // 启动整个自动探索系统
+    // startAutoFightSystem();
+    // MODIFIED: 统一的“心跳守护进程”
+    function startAutoFightGuardian() {
+        // 检查全局 window 对象上是否已经存在我们的计时器
+        if (window.autoFightGuardianTimer) {
+            // 如果已经存在，说明守护进程已启动，直接返回，不做任何事
+            return;
+        }
+
+        autoFightLog("守护进程启动，开始周期性检查任务状态...");
+
+        // 创建计时器，并将其ID存储在全局 window 对象上
+        window.autoFightGuardianTimer = setInterval(() => {
+            // 心跳的核心任务：如果开关是开的，且大脑是闲的，就去叫醒大脑
+            if (autoFightState.isRunning() && !isControllerBusy) {
+                autoFightController();
+            }
+        }, 5000); // 每5秒搏动一次
+    }
+
+    // 在脚本的最后，启动这个守护进程
+    startAutoFightGuardian();
+
+    // ==================================================================================
+    // ========================= 全自动探索（打怪）功能模块 结束 ==========================
+    // ==================================================================================
+
+
     function loadCaptcha() { var w = unsafeWindow, C = '___grecaptcha_cfg', cfg = w[C] = w[C] || {}, N = 'grecaptcha'; var gr = w[N] = w[N] || {}; gr.ready = gr.ready || function (f) { (cfg['fns'] = cfg['fns'] || []).push(f); }; w['__recaptcha_api'] = 'https://recaptcha.net/recaptcha/api2/'; (cfg['render'] = cfg['render'] || []).push('6LdeDqopAAAAAFhBk3q_TY7uB4QjU1QJ26viqZzm'); (cfg['clr'] = cfg['clr'] || []).push('true'); w['__google_recaptcha_client'] = true; var d = document, po = d.createElement('script'); po.type = 'text/javascript'; po.async = true; po.charset = 'utf-8'; var v = w.navigator, m = d.createElement('meta'); m.httpEquiv = 'origin-trial'; m.content = 'A6iYDRdcg1LVww9DNZEU+JUx2g1IJxSxk4P6F+LimR0ElFa38FydBqtz/AmsKdGr11ZooRgDPCInHJfGzwtR+A4AAACXeyJvcmlnaW4iOiJodHRwczovL3d3dy5yZWNhcHRjaGEubmV0OjQ0MyIsImZlYXR1cmUiOiJEaXNhYmxlVGhpcmRQYXJ0eVN0b3JhZ2VQYXJ0aXRpb25pbmczIiwiZXhwaXJ5IjoxNzU3OTgwODAwLCJpc1N1YmRvbWFpbiI6dHJ1ZSwiaXNUaGlyZFBhcnR5Ijp0cnVlfQ=='; if (v && v.cookieDeprecationLabel) { v.cookieDeprecationLabel.getValue().then(function (l) { if (l !== 'treatment_1.1' && l !== 'treatment_1.2' && l !== 'control_1.1') { d.head.prepend(m); } }); } else { d.head.prepend(m); } var m = d.createElement('meta'); m.httpEquiv = 'origin-trial'; m.content = '3NNj0GXVktLOmVKwWUDendk4Vq2qgMVDBDX+Sni48ATJl9JBj+zF+9W2HGB3pvt6qowOihTbQgTeBm9SKbdTwYAAABfeyJvcmlnaW4iOiJodHRwczovL3JlY2FwdGNoYS5uZXQ6NDQzIiwiZmVhdHVyZSI6IlRwY2QiLCJleHBpcnkiOjE3MzUzNDM5OTksImlzVGhpcmRQYXJ0eSI6dHJ1ZX0='; d.head.prepend(m); po.src = 'https://www.gstatic.com/recaptcha/releases/ItfkQiGBlJDHuTkOhlT3zHpB/recaptcha__zh_cn.js'; po.crossOrigin = 'anonymous'; po.integrity = 'sha384-UF8pAykZ+VBSDcjXDEt2VvikemnguufrcXs9KUn/cNlu5UOpsyb3P1RhkXBdRuLk'; var e = d.querySelector('script[nonce]'), n = e && (e['nonce'] || e.getAttribute('nonce')); if (n) { po.setAttribute('nonce', n); } var s = d.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s); };
 
     const auto_scroll = {
-        _value: GM_getValue("auto_scroll", true),
+        _value: GM_getValue(`auto_scroll_${accountId}`, true),
         get value() {
             return this._value
         },
         set value(newVal) {
             this._value = newVal
-            GM_setValue("auto_scroll", newVal)
+            GM_setValue(`auto_scroll_${accountId}`, newVal)
         }
     }
     function delay(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
-    const bg = GM_getValue("bg_display", false)
+    const bg = GM_getValue(`bg_display_${accountId}`, false)
     if (!data_obj.value.bg_display) {
         document.getElementsByClassName("bgfull")[0].style = ""
     }
@@ -280,132 +1457,135 @@
     }
     setInterval(noAssistance, 1000)
     function replaceCountdown() {
-        if (unsafeWindow.location.pathname.startsWith("/e/mob") === true || unsafeWindow.location.pathname.startsWith("/mob") === true) {
+        if (unsafeWindow.location.pathname.startsWith("/e/mob") === true || unsafeWindow.location.pathname.startsWith("/mob") === true || unsafeWindow.location.pathname.startsWith("/c/c/mob") === true || unsafeWindow.location.pathname.startsWith("/c/mob") === true) {
             if (document.querySelector('span[id^="countdown_mob"]') !== null) {
                 document.querySelector('span[id^="countdown_mob"]').id = "betterCount"
             }
             if (document.getElementById("betterCount") !== null) {
                 let despawnTime = parseInt(document.getElementById("post-193").innerHTML.match(/(?<=targetTimestamp\s=\s)\d+/)[0], 10)
                 let currentTime = Math.floor(Date.now() / 1000)
+                let date_ = formatMinutesSeconds(despawnTime)
                 if (despawnTime > currentTime) {
                     document.getElementById("betterCount").style = "color: #3fff7f"
-                    document.getElementById("betterCount").innerHTML = "" + (despawnTime - currentTime)
+                    document.getElementById("betterCount").innerHTML = `${date_}[` + (despawnTime - currentTime) + "]"
+                    // document.getElementById("betterCount").innerHTML = "" + (despawnTime - currentTime)
                 } else {
                     document.getElementById("betterCount").style = "color: #ff3f7f"
-                    document.getElementById("betterCount").innerHTML = "" + (currentTime - despawnTime)
+                    document.getElementById("betterCount").innerHTML = `${date_}[` + (currentTime - despawnTime) + "]"
+                    // document.getElementById("betterCount").innerHTML = "" + (currentTime - despawnTime)
                 }
             }
         }
     }
     setInterval(replaceCountdown, 1000)
     const PFLFstart = {
-        _value: GM_getValue("PFLFstart", false),
+        _value: GM_getValue(`PFLFstart_${accountId}`, false),
         get value() {
             return this._value
         },
         set value(newVal) {
             this._value = newVal
-            GM_setValue("PFLFstart", newVal)
+            GM_setValue(`PFLFstart_${accountId}`, newVal)
         }
     }
     const PFLFturn = {
-        _value: GM_getValue("PFLFturn", 0),
+        _value: GM_getValue(`PFLFturn_${accountId}`, 0),
         get value() {
             return this._value
         },
         set value(newVal) {
             this._value = newVal
-            GM_setValue("PFLFturn", newVal)
+            GM_setValue(`PFLFturn_${accountId}`, newVal)
         }
     }
     const PFLFscore = {
-        _value: GM_getValue("PFLFscore", 0),
+        _value: GM_getValue(`PFLFscore_${accountId}`, 0),
         get value() {
             return this._value
         },
         set value(newVal) {
             this._value = newVal
-            GM_setValue("PFLFscore", newVal)
+            GM_setValue(`PFLFscore_${accountId}`, newVal)
         }
     }
     const PFLFclear = {
-        _value: GM_getValue("PFLFclear", 0),
+        _value: GM_getValue(`PFLFclear_${accountId}`, 0),
         get value() {
             return this._value
         },
         set value(newVal) {
             this._value = newVal
-            GM_setValue("PFLFclear", newVal)
+            GM_setValue(`PFLFclear_${accountId}`, newVal)
         }
     }
     const PFLFdice = {
-        _value: GM_getValue("PFLFdice", 0),
+        _value: GM_getValue(`PFLFdice_${accountId}`, 0),
         get value() {
             return this._value
         },
         set value(newVal) {
             this._value = newVal
-            GM_setValue("PFLFdice", newVal)
+            GM_setValue(`PFLFdice_${accountId}`, newVal)
         }
     }
     const PFLFlimit = {
-        _value: GM_getValue("PFLFlimit", 8),
+        _value: GM_getValue(`PFLFlimit_${accountId}`, 8),
         get value() {
             return this._value
         },
         set value(newVal) {
             this._value = newVal
-            GM_setValue("PFLFlimit", newVal)
+            GM_setValue(`PFLFlimit_${accountId}`, newVal)
         }
     }
     const PFLFroll = {
-        _value: GM_getValue("PFLFroll", 3),
+        _value: GM_getValue(`PFLFroll_${accountId}`, 3),
         get value() {
             return this._value
         },
         set value(newVal) {
             this._value = newVal
-            GM_setValue("PFLFroll", newVal)
+            GM_setValue(`PFLFroll_${accountId}`, newVal)
         }
     }
     const Num1A2B = {
-        _value: GM_getValue("Num1A2B", 0),
+        _value: GM_getValue(`Num1A2B_${accountId}`, 0),
         get value() {
             return this._value
         },
         set value(newVal) {
             this._value = newVal
-            GM_setValue("Num1A2B", newVal)
+            GM_setValue(`Num1A2B_${accountId}`, newVal)
         }
     }
     const com_rep = {
-        _value: GM_getValue("com_rep", false),
+        _value: GM_getValue(`com_rep_${accountId}`, false),
         get value() {
             return this._value
         },
         set value(newVal) {
             this._value = newVal
-            GM_setValue("com_rep", newVal)
+            GM_setValue(`com_rep_${accountId}`, newVal)
         }
     }
     const com_dil = {
-        _value: GM_getValue("com_dil", false),
+        _value: GM_getValue(`com_dil_${accountId}`, false),
         get value() {
             return this._value
         },
         set value(newVal) {
             this._value = newVal
-            GM_setValue("com_dil", newVal)
+            GM_setValue(`com_dil_${accountId}`, newVal)
         }
     }
     const msg_send = {
-        _value: GM_getValue("msg_send", 1),
+        _value: GM_getValue(`msg_send_${accountId}`, 1),
         get value() {
             return (this._value + 0)
         },
         set value(newVal) {
             this._value = newVal
-            GM_setValue("msg_send", newVal)
+            GM_setValue(`msg_send_${accountId}`, newVal)
         }
     }
 
@@ -463,13 +1643,13 @@
         }
     }
     const dicerResult = {
-        _value: GM_getValue("dicerResult", new Array(15).fill(0)),
+        _value: GM_getValue(`dicerResult`, new Array(15).fill(0)),
         get value() {
             return this._value
         },
         set value(newVal) {
             this._value = newVal
-            GM_setValue("dicerResult", newVal)
+            GM_setValue(`dicerResult`, newVal)
         }
     }
     function rarityToColor(rar) {
@@ -492,12 +1672,6 @@
             return "#43E3D8"
         }
         if (rar === "Ultimate") {
-            return "#F274A9"
-        }
-        if (rar === "Mythic Boss") {
-            return "#43E3D8"
-        }
-        if (rar === "Ultimate Boss") {
             return "#F274A9"
         }
         document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
@@ -555,7 +1729,7 @@
         }
     }
     const craftAtt = {
-        _value: GM_getValue("craftAtt", new Array(10).fill().map(() => new Array(150).fill("0/0"))),
+        _value: GM_getValue(`craftAtt`, new Array(10).fill().map(() => new Array(150).fill("0/0"))),
         get value() {
             return this._value
         },
@@ -923,7 +2097,7 @@
 
     function ATKdisplay() {
         try {
-            if (unsafeWindow.location.pathname.startsWith("/e/mob") === true || unsafeWindow.location.pathname.startsWith("/e/limit") === true || unsafeWindow.location.pathname.startsWith("/mob") === true || unsafeWindow.location.pathname.startsWith("/limit") === true) {
+            if (unsafeWindow.location.pathname.startsWith("/e/mob") === true || unsafeWindow.location.pathname.startsWith("/c/c/mob") === true || unsafeWindow.location.pathname.startsWith("/c/mob") === true || unsafeWindow.location.pathname.startsWith("/c/c/limit") === true || unsafeWindow.location.pathname.startsWith("/c/limit") === true || unsafeWindow.location.pathname.startsWith("/e/limit") === true || unsafeWindow.location.pathname.startsWith("/mob") === true || unsafeWindow.location.pathname.startsWith("/limit") === true) {
                 if (document.querySelector('img[src*="/mob/"]') !== null && document.querySelector('img[src*="/mob/"]').parentElement.className !== "getboss show" &&
                     document.querySelector('img[src*="/mob/"]').parentElement.children[document.querySelector('img[src*="/mob/"]').parentElement.children.length - 1].innerHTML.includes("Tier") === false) {
                     let mobName = document.querySelector('img[src*="/mob/"]').parentElement.children[document.querySelector('img[src*="/mob/"]').parentElement.children.length - 1].innerHTML.match(/^.*?(?=<br>)/)[0]
@@ -951,7 +2125,7 @@
                         };
                         // Find the first element with innerText "Threshould"
                         const thresholdElement = Array.from(document.querySelectorAll('*')).find(el =>
-                            el.innerText.trim() === "Threshold" || el.innerText.trim() === "Now Health" || el.innerText.trim() === "Remaining"
+                            el.innerText.trim() === "Threshold" || el.innerText.trim() === "Now Health" || el.innerText.trim() === "阈值还差"
                         );
                         const nextElement = thresholdElement?.nextElementSibling;
                         const beyond = document.querySelectorAll('img[src$="beyond.png"]').length;
@@ -973,7 +2147,6 @@
         } catch { };
     }
     setInterval(ATKdisplay, 1000)
-
     function BossLootDisplay() {
         function createEmptyHeight(height) {
             const H = document.createElement('div')
@@ -1009,6 +2182,7 @@
         } catch { }
     }
     setInterval(BossLootDisplay, 1000)
+    setInterval(addArea4Button, 1000);
 
     function renderMobList() {
         function EffectiveMob(timestamp, rarity) {
@@ -1201,7 +2375,7 @@
         if (testID !== 33) {
             return false
         }
-        if (testRarity < 3) {
+        if (testRarity < 4) {
             return true
         }
         return false
@@ -1210,8 +2384,8 @@
         if (/^\d+\.\d+\b/.test(value) === false) {
             return false
         }
-        const craftMin = GM_getValue("craft_min", 1)
-        const craftMax = GM_getValue("craft_max", 4)
+        const craftMin = GM_getValue(`craft_min_${accountId}`, 1)
+        const craftMax = GM_getValue(`craft_max_${accountId}`, 4)
         let testID = parseInt(value.match(/^\d+/)[0], 10), testRarity = parseInt(value.match(/(?<=\.)\d+/)[0], 10)
 
         if (testRarity < 1 || testRarity > 7) return false
@@ -1225,6 +2399,12 @@
             expectedMode = false
         }
         if (IDToCard(testID) == "Flame" && testRarity > 3) {
+            expectedMode = false
+        }
+        if (IDToCard(testID) == "Kite" && testRarity > 3) {
+            expectedMode = false
+        }
+        if (IDToCard(testID) == "Atom" && testRarity < 3) {
             expectedMode = false
         }
         const craftMode = GM_getValue(modeFull, expectedMode)
@@ -1258,12 +2438,12 @@
             for (let i = document.getElementsByName("cardchoose").length - 1; i >= 0; i--) {
                 if (canDice == false && goDice && diceRule(document.getElementsByName("cardchoose")[i].value)) {
                     document.getElementsByName("cardchoose")[i].checked = 1
-                    await delay(200)
+                    await delay(getRandomDelay(0.2, 0.6))
                     unsafeWindow.dicego()
                     while (document.getElementsByName("cardchoose").length > i && document.getElementsByName("cardchoose")[i].checked) {
-                        await delay(100)
+                        await delay(getRandomDelay(0.1, 0.3))
                     }
-                    await delay(500)
+                    await delay(getRandomDelay(0.5, 0.8))
                     let testGetBack = document.getElementById("ans").innerHTML.match(/(?<=x )\d+/)
                     if (testGetBack !== null) {
                         testGetBack = parseInt(testGetBack[0], 10)
@@ -1380,15 +2560,15 @@
                 if (canCraft == false && goCraft && craftRule(document.getElementsByName("cardchoose")[i].value) && parseInt(document.getElementsByName("cardchoose")[i].labels[0].innerText.match(/\d+/)[0], 10) >= 5) {
                     let pendingRarity = parseInt(document.getElementsByName("cardchoose")[i].value.match(/(?<=\.)\d+/)[0], 10)
                     document.getElementsByName("cardchoose")[i].checked = 1
-                    await delay(200)
+                    await delay(getRandomDelay(0.2, 0.4))
                     document.getElementById("nownum").innerHTML = parseInt(document.getElementsByName("cardchoose")[i].labels[0].innerText.match(/\d+/)[0], 10)
                     unsafeWindow.craftchange()
-                    await delay(200)
+                    await delay(getRandomDelay(0.2, 0.6))
                     oldCraft()
                     while (document.getElementsByName("cardchoose").length > i && document.getElementsByName("cardchoose")[i].checked) {
-                        await delay(100)
+                        await delay(getRandomDelay(0.1, 0.5))
                     }
-                    await delay(500)
+                    await delay(getRandomDelay(0.5, 1.1))
                     let currentAtt = parseInt(document.getElementById("nowatt").innerHTML.match(/\d+/)[0], 10)
                     let matchAtt = document.getElementById("ans").innerHTML.match(/(?<=（)(-\d|-5, \+1)(?=）)/g)
                     let testArray = craftAtt.value
@@ -1497,15 +2677,15 @@
                 if (canFrag == false && goFrag && parseInt(document.getElementsByName("cardchoose")[i].labels[0].innerText.match(/\d+/)[0], 10) >= 4 + parseInt(document.getElementsByName("cardchoose")[i].value.match(/(?<=\.)\d+/)[0], 10)) {
                     let pendingRarity = parseInt(document.getElementsByName("cardchoose")[i].value.match(/(?<=\.)\d+/)[0], 10)
                     document.getElementsByName("cardchoose")[i].checked = 1
-                    await delay(200)
+                    await delay(getRandomDelay(0.2, 0.4))
                     document.getElementById("nownum").innerHTML = Math.floor(parseInt(document.getElementsByName("cardchoose")[i].labels[0].innerText.match(/\d+/)[0], 10) / (4 + pendingRarity))
                     unsafeWindow.craftchange2()
-                    await delay(200)
+                    await delay(getRandomDelay(0.2, 0.6))
                     unsafeWindow.craftfrag()
                     while (document.getElementsByName("cardchoose").length > i && document.getElementsByName("cardchoose")[i].checked) {
-                        await delay(100)
+                        await delay(getRandomDelay(0.1, 0.5))
                     }
-                    await delay(500)
+                    await delay(getRandomDelay(0.5, 0.8))
                     canFrag = true
                 }
             }
@@ -1598,7 +2778,7 @@
     }
 
     const oldWS = unsafeWindow.ws;
-    const NOCHAT_STORAGE_KEY = 'nochat_enabled';
+    const NOCHAT_STORAGE_KEY = `nochat_enabled_${accountId}`;
     let noChat = GM_getValue(NOCHAT_STORAGE_KEY, false); // 读取保存的状态，默认false
     let isIntercepting = false;
     const oldChatroom = unsafeWindow.chatroom;
@@ -1686,69 +2866,13 @@
         "shmob",
         "reqmob",
         "getmob",
-        "logout",
-        "no",
-        "block",
-        "unblock",
-        "showblock"
+        "autofight",
+        "stopfight",
+        "autofight_route",
+        "autofight_exclude",
+        "autofight_unexclude",
+        "autofight_list_excludes"
     ];
-
-
-    const blockList = {
-        _value: GM_getValue("blockList", initBlockList),
-        get value() {
-            return this._value
-        },
-        set value(newVal) {
-            if (!Array.isArray(newVal) || newVal.length !== 2) {
-                throw new Error("Expected [key, value] array");
-            }
-            this._value[newVal[0]] = newVal[1]
-            GM_setValue("blockList", this._value)
-        },
-        delete(key) {
-            delete this._value[key];
-            GM_setValue("blockList", this._value);
-        },
-        add(username) {
-            this._value[username] = true;
-            GM_setValue("blockList", this._value);
-        },
-        remove(username) {
-            delete this._value[username];
-            GM_setValue("blockList", this._value);
-        },
-        contains(username) {
-            return !!this._value[username];
-        },
-        list() {
-            return Object.keys(this._value);
-        }
-    }
-
-    function blockMessages() {
-        const boardDiv = document.getElementById("board");
-        if (boardDiv) {
-            const allDivs = boardDiv.querySelectorAll("div");
-            allDivs.forEach(div => {
-                const fontElement = div.querySelector('font[color="#444"] b');
-                if (fontElement) {
-                    const username = fontElement.textContent.trim();
-                    if (blockList.contains(username)) {
-                        // 隐藏消息而不是删除
-                        div.style.display = 'none';
-                        div.setAttribute('data-blocked-user', username);
-                    } else if (div.hasAttribute('data-blocked-user')) {
-                        // 如果用户不在屏蔽列表但消息被隐藏，恢复显示
-                        div.style.display = '';
-                        div.removeAttribute('data-blocked-user');
-                    }
-                }
-            });
-        }
-    }
-
-    setInterval(blockMessages, 1000)
 
     const updateCountdown_mob = unsafeWindow.updateCountdown_mob
     unsafeWindow.updateCountdown_mob = function () {
@@ -1756,41 +2880,344 @@
         catch { };
     }
 
+
+
+
+    // 创建查询刷怪按钮
+    let isProcessing = false;
+    async function handleButtonClick() {
+        try {
+            const serverData = await getDataFromServer();
+            reqmob = { ...serverData.messages.pos };
+            renderMobList();
+        } catch (error) {
+            console.error("操作失败:", error);
+        }
+    }
+    function addButton() {
+        if (document.getElementById('tmTriggerBtn')) return;
+        const btn = document.createElement("button");
+        btn.id = "tmTriggerBtn";
+        btn.textContent = "查询刷怪";
+
+        // 基础样式（可根据需要调整）
+        btn.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        padding: 10px 15px;
+        background: #2185d0;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        z-index: 9999;
+    `;
+
+        // 绑定点击事件
+        btn.addEventListener("click", handleButtonClick);
+        btn.addEventListener("click", () => {
+            if (isProcessing) return;
+            isProcessing = true;
+            btn.textContent = "加载中...";
+            btn.disabled = true;
+            handleButtonClick().finally(() => {
+                isProcessing = false;
+                btn.textContent = "查询刷怪";
+                btn.disabled = false;
+            });
+        });
+
+        // 插入到页面右下角（可根据需要修改插入位置）
+        document.body.appendChild(btn);
+    }
+
+
+
+    // ================ 时间转换函数 ================
+    function formatMinutesSeconds(shtime) {
+        if (!shtime || typeof shtime !== 'number') {
+            return "00m00s";
+        }
+
+        // 转换为北京时间 (UTC+8)
+        const date = new Date(shtime * 1000); // 转换为毫秒
+        const cnDate = new Date(date.getTime() + 8 * 3600 * 1000);
+
+        // 分解小时、分钟和秒数
+        const hours = cnDate.getUTCHours();
+        const minutes = cnDate.getUTCMinutes();
+        const seconds = cnDate.getUTCSeconds();
+
+        // 格式化为两位数
+        const pad = n => n.toString().padStart(2, '0');
+        return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+    }
+
+
+
+    // 分享操作处理函数
+    let isShareProcessing = false;
+    function handleShareClick() {
+        try {
+            const t = shmob;
+            let shrarity = shmob.rarity.slice(0, 1);
+            if (shrarity === "U") shrarity = shmob.rarity.slice(0, 2);
+            let shbyd = shmob.beyond ? "Byd." : "";
+            let shtime = shmob.timestamp;
+            const timeDisplay = formatMinutesSeconds(shtime);
+            const newMessageValue = `${calcPos(shmob.pos)}.${shbyd}${shrarity}.${shmob.name}.${shmob.threshold}[${timeDisplay}]`;
+            document.getElementById("message").value = newMessageValue;
+            // unsafeWindow.send()
+        } catch (error) {
+            console.error("[分享] 操作失败:", error);
+            throw error;
+        }
+    }
+    // 创建分享按钮
+    function createShareButton() {
+        if (document.getElementById('tmShareBtn')) return null;
+        const btn = document.createElement("button");
+        btn.id = "tmShareBtn";
+        btn.textContent = "生成分享";
+        // 独立样式配置
+        const buttonStyle = {
+            position: 'fixed',
+            bottom: '60px', // 在查询按钮上方
+            right: '20px',
+            background: '#21ba45',
+            padding: '10px 15px',
+            color: 'white',
+            border: 'none',
+            borderRadius: '5px',
+            cursor: 'pointer',
+            zIndex: 9999
+        };
+        btn.style.cssText = Object.entries(buttonStyle)
+            .map(([k, v]) => `${k}:${v}`)
+            .join(';');
+        // 事件绑定封装
+        const handleClick = () => {
+            if (isShareProcessing) return;
+
+            try {
+                isShareProcessing = true;
+                btn.textContent = "生成中...";
+                btn.disabled = true;
+
+                handleShareClick();
+            } finally {
+                isShareProcessing = false;
+                btn.textContent = "生成分享";
+                btn.disabled = false;
+            }
+        };
+
+        btn.addEventListener('click', handleClick);
+        return btn;
+    }
+
+    // --- 新增的功能：创建“一键全自动签到”按钮 ---
+    function createClaimAllButton() {
+        // 如果按钮已存在，则不重复创建
+        if (document.getElementById('tmClaimAllBtn')) return;
+
+        const btn = document.createElement("button");
+        btn.id = "tmClaimAllBtn";
+        btn.textContent = "一键签到";
+
+        // 设置按钮样式，让它和之前的按钮风格统一
+        btn.style.cssText = `
+            position: fixed;
+            bottom: 100px; /* 放在“生成分享”按钮的上方 */
+            right: 20px;
+            padding: 10px 15px;
+            background: #f2711c; /* 橙色 */
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            z-index: 9999;
+        `;
+
+        // 为按钮绑定点击事件
+        btn.addEventListener("click", () => {
+            // 点击后，执行与 .claimall 命令完全相同的逻辑
+            automationLog("正在通过按钮启动全自动签到...");
+            const user = getCurrentUser();
+            if (user) {
+                let firstTaskIndex = -1;
+                for (let i = 0; i < dailyTasks.length; i++) {
+                    if (!isTaskDoneToday(dailyTasks[i].path, user)) {
+                        firstTaskIndex = i;
+                        break;
+                    }
+                }
+                if (firstTaskIndex !== -1) {
+                    GM_setValue(`isClaimingAll_${accountId}`, true);
+                    GM_setValue(`currentUserClaim_${accountId}`, user);
+                    GM_setValue(`currentClaimTaskIndex_${accountId}`, firstTaskIndex);
+                    window.location.href = dailyTasks[firstTaskIndex].path;
+                } else {
+                    automationLog(`账户 [${user}] 的所有每日任务在22小时内均已完成。`);
+                }
+            } else {
+                automationLog("当前页面无法识别账户，正在自动跳转到个人空间页面获取信息...");
+                GM_setValue(`startClaimAllAfterNav_${accountId}`, true);
+                window.location.href = '/space/';
+            }
+        });
+
+        // 将按钮添加到页面上
+        document.body.appendChild(btn);
+    }
+
+    // --- 新增的功能：Nano ---
+    function startNanoAutomaton() {
+        if (GM_getValue(`isNanoAutomatonRunning_${accountId}`, false)) {
+            automationLog("Nano已经在运行中。");
+            return;
+        }
+        automationLog("Nano已启动，即将开始第一次任务...");
+        GM_setValue(`isNanoAutomatonRunning_${accountId}`, true);
+        // 立即开始第一次任务，通过跳转到目标页面来触发
+        window.location.href = 'https://ruarua.ru/npc/';
+    }
+
+    function stopNanoAutomaton() {
+        if (!GM_getValue(`isNanoAutomatonRunning_${accountId}`, false)) {
+            automationLog("Nano并未运行。");
+            return;
+        }
+        automationLog("Nano已停止。");
+        GM_setValue(`isNanoAutomatonRunning_${accountId}`, false);
+    }
+
+    function createNanoControlButton() {
+        if (document.getElementById('tmNanoBtn')) return; // 防止重复
+
+        const isRunning = GM_getValue(`isNanoAutomatonRunning_${accountId}`, false);
+
+        const btn = document.createElement("button");
+        btn.id = "tmNanoBtn";
+        btn.textContent = isRunning ? "停止Nano" : "启动Nano";
+
+        btn.style.cssText = `
+            position: fixed;
+            bottom: 140px; /* 放在“一键签到”按钮的上方 */
+            right: 20px;
+            padding: 10px 15px;
+            background: ${isRunning ? '#db2828' : '#2185d0'}; /* 运行时为红色，停止时为蓝色 */
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            z-index: 9999;
+        `;
+
+        btn.addEventListener("click", () => {
+            if (GM_getValue(`isNanoAutomatonRunning_${accountId}`, false)) {
+                stopNanoAutomaton();
+            } else {
+                startNanoAutomaton();
+            }
+            // 立刻更新按钮状态，提供即时反馈
+            btn.textContent = GM_getValue(`isNanoAutomatonRunning_${accountId}`, false) ? "停止Nano" : "启动Nano";
+            btn.style.background = GM_getValue(`isNanoAutomatonRunning_${accountId}`, false) ? '#db2828' : '#2185d0';
+        });
+
+        document.body.appendChild(btn);
+    }
+
+    // -- 添加轮询逻辑来确保按钮显示 --
+    function ensureButtonsExist() {
+        // 尝试添加“查询刷怪”按钮
+        addButton();
+
+        // 尝试添加“生成分享”按钮
+        const shareButton = createShareButton();
+        if (shareButton) {
+            document.body.appendChild(shareButton);
+        }
+
+        // --- 新增的一行 ---
+        // 尝试添加“一键全自动签到”按钮
+        createClaimAllButton();
+
+        createNanoControlButton();
+
+        // 新增：创建自动探索按钮
+        createAutoFightButton();
+    }
+    // 每隔 1 秒执行一次检查，确保按钮始终存在
+    setInterval(ensureButtonsExist, 1000);
+
+
+    const oldSend = unsafeWindow.send
     unsafeWindow.send = function () {
+        // MODIFIED: 在函数开头添加对新指令的拦截和处理
+        const messageValueForAutoFight = document.getElementById("message").value;
+        const autoFightParts = messageValueForAutoFight.split(" ");
+        const autoFightCommand = autoFightParts[0];
+
+        switch (autoFightCommand) {
+            case ".autofight_route":
+                if (autoFightParts.length > 1 && autoFightParts[1]) {
+                    autoFightState.setRoute(autoFightParts[1]);
+                } else {
+                    autoFightLog("指令错误。用法: .autofight_route m-c-i-g");
+                }
+                document.getElementById("message").value = "";
+                return; // 处理完毕，提前退出
+
+            case ".autofight":
+                if (autoFightParts.length > 1 && autoFightParts[1]) {
+                    autoFightState.setRoute(autoFightParts[1]);
+                }
+                autoFightLog(`使用路线 [${autoFightState.getRoute()}] 启动自动探索...`);
+                autoFightState.setRunning(true);
+                autoFightState.resetRouteIndex();
+                autoFightState.clearCompletedZones();
+                autoFightController();
+                document.getElementById("message").value = "";
+                return;
+
+            case ".stopfight":
+                autoFightState.setRunning(false);
+                autoFightLog("自动探索已手动停止。");
+                document.getElementById("message").value = "";
+                return;
+
+            case ".autofight_exclude":
+                const idsToAdd = autoFightParts.slice(1).filter(id => id);
+                if (idsToAdd.length > 0) autoFightState.addToExclusionList(idsToAdd);
+                else autoFightLog("用法: .autofight_exclude c4 g4");
+                document.getElementById("message").value = "";
+                return;
+
+            case ".autofight_unexclude":
+                const idsToRemove = autoFightParts.slice(1).filter(id => id);
+                if (idsToRemove.length > 0) autoFightState.removeFromExclusionList(idsToRemove);
+                else autoFightLog("用法: .autofight_unexclude c4");
+                document.getElementById("message").value = "";
+                return;
+
+            case ".autofight_list_excludes":
+                autoFightState.listExclusions();
+                document.getElementById("message").value = "";
+                return;
+        }
+        // MODIFIED: 拦截逻辑结束，后面是脚本原有逻辑
+
         const messageValue = document.getElementById("message").value
         let newMessageValue = messageValue
 
-        const isPermutation = (a, b) => {
-            if (a.length !== b.length) return false;
-            const aSorted = [...a.toLowerCase()].sort().join('');
-            const bSorted = [...b.toLowerCase()].sort().join('');
-            return aSorted === bSorted;
-        };
-
-        let ActualCommand = newMessageValue.split(' ')[0].slice(1)
-        let original = ActualCommand
-        const permutations = CommandList.filter(str => isPermutation(ActualCommand, str));
-        if (permutations.length > 0 && data_obj.value.permu) {
-            ActualCommand = permutations[0]
-            newMessageValue = '.'.concat(ActualCommand.concat(newMessageValue.slice(ActualCommand.length + 1)))
-            document.getElementById("message").value = newMessageValue
-            console.log(original + " Command permutated to " + newMessageValue)
-        }
-
-        let isCommand = false // if isCommand is true, send directly to chat
+        let isCommand = false
         isCommand = newMessageValue.slice(0, 1) === "."
         if (newMessageValue.slice(0, 3) === ".fw") isCommand = false
         if (newMessageValue.slice(0, 3) === ".re") isCommand = false
         if (newMessageValue === ".sharemob") isCommand = false
         if (newMessageValue === ".shmob") isCommand = false
-        if (newMessageValue.slice(0, 6) === ".share") {
-            newMessageValue = "/".concat(newMessageValue.slice(1))
-            document.getElementById("message").value = newMessageValue
-        }
-        if (newMessageValue.slice(0, 5) === ".rand") {
-            newMessageValue = "/".concat(newMessageValue.slice(1))
-            document.getElementById("message").value = newMessageValue
-        }
 
         function getkthElement(ind) {
             let tmp = document.getElementById("board").childElementCount;
@@ -1808,6 +3235,16 @@
 
         newMessageValue = newMessageValue.replaceAll(/(?<!\s)(?!\s{2}\S)\s+/g, "  ")
 
+        if (newMessageValue === ".startnano") {
+            startNanoAutomaton();
+            newMessageValue = "";
+            document.getElementById("message").value = newMessageValue;
+        }
+        if (newMessageValue === ".stopnano") {
+            stopNanoAutomaton();
+            newMessageValue = "";
+            document.getElementById("message").value = newMessageValue;
+        }
         if (newMessageValue === ".execute") {
             let tmp = document.getElementById("board").childElementCount;
             let cmd = document.getElementById("board").children[tmp - 1].textContent;
@@ -1863,17 +3300,6 @@
             newMessageValue = cmd;
         }
 
-        if (newMessageValue.slice(0, 4) === ".no ") {
-            let msg = newMessageValue.slice(5);
-            msg = msg.toLowerCase().trim();
-            let n = -1;
-            let i = 0;
-            for (; i < 1005; i++) if (pair[i] === msg) n = i
-            newlog(n)
-            document.getElementById("message").value = "";
-            newMessageValue = "";
-        }
-
         if (newMessageValue === ".reqmob" || newMessageValue === ".getmob") {
             (async () => {
                 const serverData = await getDataFromServer();
@@ -1883,14 +3309,6 @@
             newMessageValue = "";
             document.getElementById("message").value = newMessageValue;
         }
-
-        if (newMessageValue === ".logout") {
-            unsafeWindow.logout();
-            newMessageValue = "";
-            document.getElementById("message").value = newMessageValue;
-        }
-
-        if (newMessageValue === ".debug") console.log(data_obj)
 
 
         //使用方法：.scroll on或者.scroll off，开启或关闭聊天室自动滚动
@@ -1905,8 +3323,8 @@
             if (newMessageValue.slice(0, 3) === "off") {
                 document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
                     "<div><span style=\"color: #7eef6d\">[SCRIPT] Scroll is off</span></div>"
-                chatScroll()
                 data_obj.value = ["auto_scroll", false]
+                chatScroll()
             }
             newMessageValue = ""
             document.getElementById("message").value = newMessageValue
@@ -1987,18 +3405,14 @@
             helpText += "<div><span style=\"color:rgb(38, 178, 221)\">.setmode [card/all] [1-7/all] true/false：设定是否合成特定稀有度的特定卡片（默认不合成Dice，Epic及以上Flame和所有Legendary及以上卡片）</span></div>"
             helpText += "<div><span style=\"color:rgb(38, 178, 221)\">.getmode [card]：查看卡片合成设定模式</span></div>"
             helpText += "<div><span style=\"color:rgb(38, 178, 221)\">.chat on/off：断开/连接聊天室</span></div>"
-            helpText += "<div><span style=\"color:rgb(38, 178, 221)\">.reqmob：查询各区域怪物情况（不一定准确）</span></div>"
+            helpText += "<div><span style=\"color:rgb(38, 178, 221)\">.reqmob：查询各区域怪物情况</span></div>"
             helpText += "<div><span style=\"color:rgb(38, 178, 221)\">.sharemob/.shmob：分享当前区域怪物（发送类似M4.E.Mojo Slime.2的消息）</span></div>"
-            helpText += "<div><span style=\"color:rgb(38, 178, 221)\">.block [name]：屏蔽某个用户的消息</span></div>"
-            helpText += "<div><span style=\"color:rgb(38, 178, 221)\">.unblock [name]/name：取消屏蔽某个用户或所有被屏蔽用户的消息</span></div>"
-            helpText += "<div><span style=\"color:rgb(38, 178, 221)\">.showblock：显示屏蔽列表</span></div>"
             helpText += "<div><span style=\"color:rgb(221, 218, 38)\">配置类：</span></div>"
             helpText += "<div><span style=\"color:rgb(221, 218, 38)\">.setting [key] [value]：直接修改设置key为value</span></div>"
             helpText += "<div><span style=\"color:rgb(221, 218, 38)\">可用key：</span></div>"
+            helpText += "<div><span style=\"color:rgb(221, 218, 38)\">         auto_scroll：是否开启聊天室自动滚动（true/false）</span></div>"
+            helpText += "<div><span style=\"color:rgb(221, 218, 38)\">         bg_display：是否显示背景（true/false）</span></div>"
             helpText += "<div><span style=\"color:rgb(221, 218, 38)\">         fuw：是否增加打怪直到成功按钮（true/false）</span></div>"
-            helpText += "<div><span style=\"color:rgb(221, 218, 38)\">         auto_scroll：聊天室自动滚动（true/false）</span></div>"
-            helpText += "<div><span style=\"color:rgb(221, 218, 38)\">         bg_display：是否展示背景图（true/false）</span></div>"
-            helpText += "<div><span style=\"color:rgb(221, 218, 38)\">         freescroll：优化Free视野（true/false）</span></div>"
             helpText += "<div><span style=\"color:rgb(148, 38, 221)\">整活类：</span></div>"
             helpText += "<div><span style=\"color:rgb(148, 38, 221)\">.rep on/off：替换此后输入的一些文本（默认off）</span></div>"
             helpText += "<div><span style=\"color:rgb(148, 38, 221)\">.dil on/off：膨胀此后输入的文本（默认off）</span></div>"
@@ -2090,10 +3504,9 @@
         if (newMessageValue.slice(0, 9) === ".setting ") {
             newMessageValue = newMessageValue.slice(10)
             let set = newMessageValue.split(' ')[0]
-            let val = ''
-            for (var i = 2; i < newMessageValue.split(' ').length; i++) val = val.concat(newMessageValue.split(' ')[i])
-            if (val.startsWith('{')) val = 'JSON.parse(`' + val + '`)'
+            let val = newMessageValue.split(' ')[2]
             data_obj.value = [set, eval(val)]
+            console.log(set + " set to " + eval(val))
             document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
                 "<div><span style=\"color: #7eef6d\">[SCRIPT] </span><span style=\"color: #ffa090\">" + set + " set to " + eval(val) + "</span></div>"
             newMessageValue = ""
@@ -2441,7 +3854,7 @@
                 document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
                     "<div><span style=\"color: #7eef6d\">[SCRIPT] Craft min rarity set to " + intToRarity(parseInt(newMessageValue, 10)) + "</span></div>"
                 chatScroll()
-                GM_setValue('craft_min', parseInt(newMessageValue, 10))
+                GM_setValue(`craft_min_${accountId}`, parseInt(newMessageValue, 10))
             }
             else {
                 document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
@@ -2458,7 +3871,7 @@
                 document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
                     "<div><span style=\"color: #7eef6d\">[SCRIPT] Craft max rarity set to " + intToRarity(parseInt(newMessageValue, 10)) + "</span></div>"
                 chatScroll()
-                GM_setValue('craft_max', parseInt(newMessageValue, 10))
+                GM_setValue(`craft_max_${accountId}`, parseInt(newMessageValue, 10))
             }
             else {
                 document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
@@ -2583,80 +3996,38 @@
             newMessageValue = ""
             document.getElementById("message").value = newMessageValue
         }
-        //使用方法：.block [name]，屏蔽某人发的消息
-        if (newMessageValue.slice(0, 7) === ".block ") {
-            newMessageValue = newMessageValue.slice(8)
-            if (newMessageValue.length === 0) {
-                document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
-                    "<div><span style=\"color: #7eef6d\">[SCRIPT] </span><span style=\"color: #7f0000\">Error: Invalid parameter!</span></div>"
-                chatScroll()
-            }
-            else {
-                blockList.add(newMessageValue)
-                document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
-                    "<div><span style=\"color: #7eef6d\">[SCRIPT] </span><span style=\"color: #ffa090\">Blocked " + newMessageValue + "</span></div>"
-                chatScroll()
-            }
-            newMessageValue = ""
-            document.getElementById("message").value = newMessageValue
-        }
-        //使用方法：.unblock [name]/all，解除屏蔽某人或所有被屏蔽用户发的消息
-        if (newMessageValue.slice(0, 9) === ".unblock ") {
-            newMessageValue = newMessageValue.slice(10)
-            if (newMessageValue.length === 0) {
-                document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
-                    "<div><span style=\"color: #7eef6d\">[SCRIPT] </span><span style=\"color: #7f0000\">Error: Invalid parameter!</span></div>"
-                chatScroll()
-            }
-            else {
-                if (newMessageValue.toLowerCase() === "all") {
-                    const blockedUsers = blockList.list()
-                    if (blockedUsers.length === 0) {
-                        document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
-                            "<div><span style=\"color: #7eef6d\">[SCRIPT] </span><span style=\"color: #ffa090\">You have no blocked users</span></div>"
-                        chatScroll()
-                    } else {
-                        for (let i = 0; i < blockedUsers.length; i++) {
-                            blockList.remove(blockedUsers[i])
-                            document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
-                                "<div><span style=\"color: #7eef6d\">[SCRIPT] </span><span style=\"color: #ffa090\">Unblocked " + blockedUsers[i] + "</span></div>"
-                        }
-                        chatScroll()
+        // 使用方法：.claimall，启动全自动签到流程
+        if (newMessageValue === ".claimall") {
+            const user = getCurrentUser();
+            if (user) {
+                // 如果当前页面就能找到用户名，直接启动流程
+                automationLog(`检测到当前账户为 [${user}]，开始执行每日签到流程...`);
+
+                let firstTaskIndex = -1;
+                for (let i = 0; i < dailyTasks.length; i++) {
+                    if (!isTaskDoneToday(dailyTasks[i].path, user)) {
+                        firstTaskIndex = i;
+                        break;
                     }
                 }
-                else if (blockList.contains(newMessageValue)) {
-                    blockList.remove(newMessageValue)
-                    document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
-                        "<div><span style=\"color: #7eef6d\">[SCRIPT] </span><span style=\"color: #ffa090\">Unblocked " + newMessageValue + "</span></div>"
-                    chatScroll()
+
+                if (firstTaskIndex !== -1) {
+                    GM_setValue(`isClaimingAll_${accountId}`, true);
+                    GM_setValue(`currentUserClaim_${accountId}`, user);
+                    GM_setValue(`currentClaimTaskIndex_${accountId}`, firstTaskIndex);
+                    window.location.href = dailyTasks[firstTaskIndex].path;
+                } else {
+                    automationLog(`账户 [${user}] 的所有每日任务在22小时内均已完成。`);
                 }
-                else {
-                    document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
-                        "<div><span style=\"color: #7eef6d\">[SCRIPT] </span><span style=\"color: #7f0000\">Error: User not blocked!</span></div>"
-                    chatScroll()
-                }
-            }
-            newMessageValue = ""
-            document.getElementById("message").value = newMessageValue
-        }
-        //使用方法：.showblock，查看屏蔽列表
-        if (newMessageValue.slice(0, 10) === ".showblock") {
-            if (blockList.list().length === 0) {
-                document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
-                    "<div><span style=\"color: #7eef6d\">[SCRIPT] </span><span style=\"color: #ffa090\">You have no blocked users</span></div>"
-                chatScroll()
             } else {
-                document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
-                    "<div><span style=\"color: #7eef6d\">[SCRIPT] </span><span style=\"color: #ffa090\">Blocked users:</span></div>"
-                const blockedUsers = blockList.list()
-                for (let i = 0; i < blockedUsers.length; i++) {
-                    document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
-                        "<div><span style=\"color: #ffa090\">" + blockedUsers[i] + "</span></div>"
-                }
-                chatScroll()
+                // 如果当前页面找不到用户名，则设置一个标志，并跳转到space页面
+                automationLog("当前页面无法识别账户，正在自动跳转到个人空间页面获取信息...");
+                GM_setValue(`startClaimAllAfterNav_${accountId}`, true); // 设置一个“导航后启动”的标志
+                window.location.href = '/space/';
             }
-            newMessageValue = ""
-            document.getElementById("message").value = newMessageValue
+
+            newMessageValue = "";
+            document.getElementById("message").value = newMessageValue;
         }
         //使用方法：.craft，根据设定的规则自动合成
         if (newMessageValue === ".craft") {
@@ -2773,7 +4144,7 @@
                 document.getElementById("board").innerHTML = document.getElementById("board").innerHTML +
                     "<div><span style=\"color: #7eef6d\">[SCRIPT] Craft State: <br></span>" + testStr + "</div>"
                 chatScroll()
-                data_obj = ["auto_scroll", false]
+                data_obj.value = ["auto_scroll", false]
             }
             newMessageValue = ""
             document.getElementById("message").value = newMessageValue
@@ -2985,7 +4356,6 @@
         newMessageValue = newMessageValue.replaceAll("stfu", "s!t!f!u!")
         newMessageValue = newMessageValue.replaceAll("cum", "c!u!m!")
         newMessageValue = newMessageValue.replaceAll("nig", "n!i!g!")
-        newMessageValue = newMessageValue.replaceAll("<", "<  ")
         let findSpaceFromEnd = newMessageValue.length
         while (newMessageValue[findSpaceFromEnd - 1] === ' ' && findSpaceFromEnd > 10) {
             findSpaceFromEnd--
@@ -3083,24 +4453,24 @@
             // Clone node to avoid moving original (remove if movement is desired)
             const clone = document.createElement('div');
             clone.innerText = div.firstChild.firstChild.textContent;
-            
+
             // Insert after mian using flex order
-            clone.style.order = getComputedStyle(mian).order 
-                ? parseInt(getComputedStyle(mian).order) + 1 
+            clone.style.order = getComputedStyle(mian).order
+                ? parseInt(getComputedStyle(mian).order) + 1
                 : 1;
-                
+
             wan.insertBefore(clone, mian.nextSibling);
         });
         mythicDivs.forEach(div => {
             // Clone node to avoid moving original (remove if movement is desired)
             const clone = document.createElement('div');
             clone.innerText = div.firstChild.firstChild.textContent;
-            
+
             // Insert after mian using flex order
-            clone.style.order = getComputedStyle(mian).order 
-                ? parseInt(getComputedStyle(mian).order) + 1 
+            clone.style.order = getComputedStyle(mian).order
+                ? parseInt(getComputedStyle(mian).order) + 1
                 : 1;
-                
+
             wan.insertBefore(clone, mian.nextSibling);
         });
         console.log('uwu');
@@ -3111,13 +4481,7 @@
     /* --------- ADDED BY ARCANAEDEN --------- */
 
     let messageHistory = [];
-    messageHistory = JSON.parse(data_obj.value.messageHistory || '[]') || [];
-    const olderSend = unsafeWindow.send;
-    unsafeWindow.send = () => {
-        olderSend();
-        data_obj.value = ['messageHistory', JSON.stringify(messageHistory)];
-    }
-    let currentIndex = messageHistory.length || -1;
+    let currentIndex = -1;
     function saveMessage(message) {
         if (message) {
             if (messageHistory[messageHistory.length - 1] !== message) messageHistory.push(message);
@@ -3235,7 +4599,7 @@
 
     // VERSION COMPATIBILITY
 
-    if ((data_obj.value.version | "0.0.0") < "1.4.0") {
+    if (false && (data_obj.value.version | "0.0.0") < "1.4.0") {
         data_obj.value.version = "1.4.0"
 
         data_obj.value = ["auto_scroll", auto_scroll.value]
