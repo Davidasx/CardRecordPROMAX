@@ -3048,6 +3048,66 @@
         console.log('WebSocket is closed now.');
     });
 
+    function renderFreeMobList() {
+        if (!infree) return;
+        const userDivs = Array.from(document.querySelectorAll('div.user[id^="mob"]'));
+        const ultimateDivs = userDivs.filter(div => {
+            try {
+                const firstChild = div.firstElementChild;
+                if (!firstChild) return false;
+                const secondChild = firstChild.children[1];
+                if (!secondChild) return false;
+                return secondChild.textContent.trim() === "Ultimate";
+            } catch (e) {
+                return false;
+            }
+        });
+        const mythicDivs = userDivs.filter(div => {
+            try {
+                const firstChild = div.firstElementChild;
+                if (!firstChild) return false;
+                const secondChild = firstChild.children[1];
+                if (!secondChild) return false;
+                return secondChild.textContent.trim() === "Mythic";
+            } catch (e) {
+                return false;
+            }
+        });
+
+        const wan = document.querySelector('#wan');
+        const mian = document.querySelector('#mian');
+
+        while (wan.childElementCount > 1) wan.children[1].remove();
+
+        ultimateDivs.forEach(div => {
+            // Clone node to avoid moving original (remove if movement is desired)
+            const clone = document.createElement('div');
+            clone.innerText = div.firstChild.firstChild.textContent;
+            
+            // Insert after mian using flex order
+            clone.style.order = getComputedStyle(mian).order 
+                ? parseInt(getComputedStyle(mian).order) + 1 
+                : 1;
+                
+            wan.insertBefore(clone, mian.nextSibling);
+        });
+        mythicDivs.forEach(div => {
+            // Clone node to avoid moving original (remove if movement is desired)
+            const clone = document.createElement('div');
+            clone.innerText = div.firstChild.firstChild.textContent;
+            
+            // Insert after mian using flex order
+            clone.style.order = getComputedStyle(mian).order 
+                ? parseInt(getComputedStyle(mian).order) + 1 
+                : 1;
+                
+            wan.insertBefore(clone, mian.nextSibling);
+        });
+        console.log('uwu');
+        setTimeout(renderFreeMobList, 10000);
+    }
+    // setTimeout(renderFreeMobList, 1000);
+
     /* --------- ADDED BY ARCANAEDEN --------- */
 
     let messageHistory = [];

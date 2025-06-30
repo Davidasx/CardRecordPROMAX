@@ -59,5 +59,6 @@
   "files.associations": {
     "MLTable": "yaml",
     "iostream": "cpp"
-  }
+  },
+  "bitoAI.codeCompletion.enableAutoCompletion": false
 }
